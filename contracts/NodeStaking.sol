@@ -1,0 +1,387 @@
+//SPDX-License-Identifier: MIT
+pragma solidity 0.8.11;
+
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts-upgradeable/utils/structs/EnumerableSetUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+
+contract NodeStakingPool is Initializable, OwnableUpgradeable {
+    using SafeERC20 for IERC20;
+    using SafeCastUpgradeable for uint256;
+
+    uint256 private constant ACCUMULATED_MULTIPLIER = 1e12;
+
+    uint256 public constant _MAXIMUM_DELAY_DURATION = 35 days; // maximum 35 days delay
+
+    // Info of each user.
+    struct NodeStakingUserInfo {
+        uint256 stakeTime;
+        uint256 amount; // How many LP tokens the user has provided.
+        uint256 rewardDebt; // Reward debt. See explanation below.
+        uint256 pendingReward; // Reward but not harvest
+        //
+        //   pending reward = (user.amount * accRewardPerShare) - user.rewardDebt
+        //
+        // Whenever a user deposits or withdraws LP tokens to a  Here's what happens:
+        //   1. The pool's `accRewardPerShare` (and `lastRewardBlock`) gets updated.
+        //   2. User receives the pending reward sent to his/her address.
+        //   3. User's `amount` gets updated.
+        //   4. User's `rewardDebt` gets updated.
+    }
+    IERC20 public lpToken; // Address of LP token contract.
+    uint256 public lpSupply; // Total lp tokens deposited to this
+    uint256 public totalRunningNode; // Total lp tokens deposited to this
+    uint256 public point; // How many allocation points assigned to this  Rewards to distribute per block.
+    uint256 public lastRewardBlock; // Last block number that rewards distribution occurs.
+    uint256 public accRewardPerShare; // Accumulated rewards per share, times 1e12. See below.
+    uint256 public delayDuration; // The duration user need to wait when withdraw.
+    uint256 public requireStakeAmount; // stake amount need for user to run node
+
+    struct NodeStakingPendingWithdrawal {
+        uint256 amount;
+        uint256 applicableAt;
+    }
+
+    // The reward token!
+    IERC20 public rewardToken;
+    // Total rewards for each block.
+    uint256 public rewardPerBlock;
+    // The reward distribution address
+    address public rewardDistributor;
+    // Allow emergency withdraw feature
+    bool public allowEmergencyWithdraw;
+
+    // A record status of LP
+    mapping(IERC20 => bool) public isAdded;
+    // Info of each user that stakes LP tokens.
+    mapping(address => NodeStakingUserInfo) public userInfo;
+    // Total allocation points. Must be the sum of all allocation points in all pools.
+    uint256 public totalNodeStakingPoint;
+    // The block number when rewards mining starts.
+    uint256 public startBlockNumber;
+    // The block number when rewards mining ends.
+    uint256 public endBlockNumber;
+    // withdraw period
+    uint256 public withdrawPeriod;
+    // withdraw period
+    uint256 public lockupDuration;
+    // the weight of provider to earn reward
+    mapping(address => uint256) public userRunningNode;
+    // Info of pending withdrawals.
+    mapping(address => NodeStakingPendingWithdrawal) public pendingWithdrawals;
+
+    event NodeStakingPoolCreated(address indexed token, uint256 point);
+    event NodeStakingDeposit(address indexed user, uint256 amount);
+    event NodeStakingWithdraw(address indexed user, uint256 amount);
+    event NodeStakingPendingWithdraw(address indexed user, uint256 amount);
+    event NodeStakingEmergencyWithdraw(address indexed user, uint256 amount);
+    event NodeStakingRewardsHarvested(address indexed user, uint256 amount);
+
+    /**
+     * @notice Initialize the contract, get called in the first time deploy
+     * @param _rewardToken the reward token address
+     * @param _rewardPerBlock the number of reward tokens that got unlocked each block
+     * @param _startBlock the block number when farming start
+     */
+    function __NodeStakingPool_init(
+        IERC20 _rewardToken,
+        uint256 _rewardPerBlock,
+        uint256 _startBlock
+    ) public initializer {
+        __Ownable_init();
+
+        require(address(_rewardToken) != address(0), "NodeStakingPool: invalid reward token address");
+        rewardToken = _rewardToken;
+        rewardPerBlock = _rewardPerBlock;
+        startBlockNumber = _startBlock;
+
+        totalNodeStakingPoint = 0;
+    }
+
+    /**
+     * @notice Add a new lp to the  Can only be called by the owner.
+     * @param _point the allocation point of the pool, used when calculating total reward the whole pool will receive each block
+     * @param _lpToken the token which this pool will accept
+     * @param _delayDuration the time user need to wait when withdraw
+     */
+    function initialize(
+        uint256 _point,
+        IERC20 _lpToken,
+        uint256 _delayDuration
+    ) external onlyOwner {
+        require(!isAdded[_lpToken], "NodeStakingPool: pool already is added");
+        require(_delayDuration <= _MAXIMUM_DELAY_DURATION, "NodeStakingPool: delay duration is too long");
+        massUpdatePools();
+
+        lastRewardBlock = block.number > startBlockNumber ? block.number : startBlockNumber;
+        totalNodeStakingPoint = totalNodeStakingPoint + _point;
+        lpToken = _lpToken;
+        lpSupply = 0;
+        totalRunningNode = 0;
+        requireStakeAmount = 0;
+        point = _point;
+        lastRewardBlock = lastRewardBlock;
+        accRewardPerShare = 0;
+        isAdded[_lpToken] = true;
+        emit NodeStakingPoolCreated(address(_lpToken), _point);
+    }
+
+    /**
+     * @notice Update the given pool's reward allocation point. Can only be called by the owner.
+     * @param _point the allocation point of the pool, used when calculating total reward the whole pool will receive each block
+     * @param _delayDuration the time user need to wait when withdraw
+     */
+    function setPool(uint256 _point, uint256 _delayDuration) external onlyOwner {
+        require(_delayDuration <= _MAXIMUM_DELAY_DURATION, "NodeStakingPool: delay duration is too long");
+        massUpdatePools();
+
+        totalNodeStakingPoint = totalNodeStakingPoint - point + _point;
+        point = _point;
+        delayDuration = _delayDuration;
+    }
+
+    /**
+     * @notice Set the reward distributor. Can only be called by the owner.
+     * @param _rewardDistributor the reward distributor
+     */
+    function setRewardDistributor(address _rewardDistributor) external onlyOwner {
+        require(_rewardDistributor != address(0), "NodeStakingPool: invalid reward distributor");
+        rewardDistributor = _rewardDistributor;
+    }
+
+    /**
+     * @notice Set the end block number. Can only be called by the owner.
+     */
+    function setEndBlock(uint256 _endBlockNumber) external onlyOwner {
+        require(_endBlockNumber > block.number, "NodeStakingPool: invalid reward distributor");
+        endBlockNumber = _endBlockNumber;
+    }
+
+    /**
+     * @notice Return time multiplier over the given _from to _to block.
+     * @param _from the number of starting block
+     * @param _to the number of ending block
+     */
+    function timeMultiplier(uint256 _from, uint256 _to) public view returns (uint256) {
+        if (endBlockNumber > 0 && _to > endBlockNumber) {
+            return endBlockNumber > _from ? endBlockNumber - _from : 0;
+        }
+        return _to - _from;
+    }
+
+    /**
+     * @notice Update number of reward per block
+     * @param _rewardPerBlock the number of reward tokens that got unlocked each block
+     */
+    function setRewardPerBlock(uint256 _rewardPerBlock) external onlyOwner {
+        massUpdatePools();
+        rewardPerBlock = _rewardPerBlock;
+    }
+
+    /**
+     * @notice View function to see pending rewards on frontend.
+     * @param _user the address of the user
+     */
+    function pendingReward(address _user) public view returns (uint256) {
+        NodeStakingUserInfo storage user = userInfo[_user];
+
+        uint256 _accRewardPerShare = accRewardPerShare;
+        if (block.number > lastRewardBlock && lpSupply != 0) {
+            uint256 multiplier = timeMultiplier(lastRewardBlock, block.number);
+            uint256 poolReward = (multiplier * rewardPerBlock * point) / totalNodeStakingPoint;
+            _accRewardPerShare = _accRewardPerShare + ((poolReward * ACCUMULATED_MULTIPLIER) / lpSupply);
+        }
+        return
+            user.pendingReward +
+            (((requireStakeAmount * userRunningNode[_user] * accRewardPerShare) / ACCUMULATED_MULTIPLIER) -
+                user.rewardDebt);
+    }
+
+    /**
+     * @notice Update reward vairables for all pools. Be careful of gas spending!
+     */
+    function massUpdatePools() public {
+        updatePool();
+    }
+
+    /**
+     * @notice Update reward variables of the given pool to be up-to-date.
+     */
+    function updatePool() public {
+        if (block.number <= lastRewardBlock) {
+            return;
+        }
+        if (lpSupply == 0) {
+            lastRewardBlock = block.number;
+            return;
+        }
+        uint256 multiplier = timeMultiplier(lastRewardBlock, block.number);
+        uint256 poolReward = (multiplier * rewardPerBlock * point) / totalNodeStakingPoint;
+        accRewardPerShare = (accRewardPerShare + ((poolReward * ACCUMULATED_MULTIPLIER) / lpSupply));
+        lastRewardBlock = block.number;
+    }
+
+    /**
+     * @notice Deposit LP tokens to the farm for reward allocation.
+     * @param _count count to deposit
+     */
+    function deposit(uint256 _count) external {
+        // TODO: check require amount to stake
+        uint256 _amount = _count * requireStakeAmount;
+
+        NodeStakingUserInfo storage user = userInfo[msg.sender];
+        user.stakeTime = block.timestamp;
+        user.amount = user.amount + _amount;
+        lpSupply = lpSupply + _amount;
+        lpToken.safeTransferFrom(address(msg.sender), address(this), _amount);
+        emit NodeStakingDeposit(msg.sender, _amount);
+    }
+
+    function enableAddress(address _user) external onlyOwner {
+        NodeStakingUserInfo storage user = userInfo[_user];
+        updatePool();
+        uint256 pending = ((requireStakeAmount * userRunningNode[_user] * accRewardPerShare) / ACCUMULATED_MULTIPLIER) -
+            user.rewardDebt;
+        user.pendingReward = user.pendingReward + pending;
+        user.rewardDebt = (requireStakeAmount * userRunningNode[_user] * accRewardPerShare) / ACCUMULATED_MULTIPLIER;
+        totalRunningNode = totalRunningNode + 1;
+        userRunningNode[_user] = userRunningNode[_user] + 1;
+    }
+
+    function disableAddress(address _user) external onlyOwner {
+        NodeStakingUserInfo storage user = userInfo[_user];
+        updatePool();
+        uint256 pending = ((requireStakeAmount * userRunningNode[_user] * accRewardPerShare) / ACCUMULATED_MULTIPLIER) -
+            user.rewardDebt;
+        user.pendingReward = user.pendingReward + pending;
+        user.rewardDebt = (requireStakeAmount * userRunningNode[_user] * accRewardPerShare) / ACCUMULATED_MULTIPLIER;
+        totalRunningNode = totalRunningNode - 1;
+        userRunningNode[_user] = userRunningNode[_user] - 1;
+    }
+
+    /**
+     * @notice Withdraw LP tokens from
+     * @param _count count to withdraw
+     * @param _harvestReward whether the user want to claim the rewards or not
+     */
+    function withdraw(uint256 _count, bool _harvestReward) external {
+        uint256 amount = _count * requireStakeAmount;
+
+        _withdraw(amount, _harvestReward);
+
+        if (delayDuration == 0) {
+            lpToken.safeTransfer(address(msg.sender), amount);
+            emit NodeStakingWithdraw(msg.sender, amount);
+            return;
+        }
+
+        NodeStakingPendingWithdrawal storage pendingWithdraw = pendingWithdrawals[msg.sender];
+        pendingWithdraw.amount = pendingWithdraw.amount + amount;
+        pendingWithdraw.applicableAt = block.timestamp + delayDuration;
+    }
+
+    /**
+     * @notice Claim pending withdrawal
+     */
+    function claimPendingWithdraw() external {
+        NodeStakingPendingWithdrawal storage pendingWithdraw = pendingWithdrawals[msg.sender];
+        uint256 amount = pendingWithdraw.amount;
+        require(amount > 0, "NodeStakingPool: nothing is currently pending");
+        require(pendingWithdraw.applicableAt <= block.timestamp, "NodeStakingPool: not released yet");
+        delete pendingWithdrawals[msg.sender];
+        lpToken.safeTransfer(address(msg.sender), amount);
+        emit NodeStakingWithdraw(msg.sender, amount);
+    }
+
+    /**
+     * @notice Update allowance for emergency withdraw
+     * @param _shouldAllow should allow emergency withdraw or not
+     */
+    function setAllowEmergencyWithdraw(bool _shouldAllow) external onlyOwner {
+        allowEmergencyWithdraw = _shouldAllow;
+    }
+
+    /**
+     * @notice Withdraw without caring about rewards. EMERGENCY ONLY.
+     */
+    function emergencyWithdraw() external {
+        require(allowEmergencyWithdraw, "NodeStakingPool: emergency withdrawal is not allowed yet");
+        NodeStakingUserInfo storage user = userInfo[msg.sender];
+        uint256 amount = user.amount;
+        user.amount = 0;
+        user.rewardDebt = 0;
+        lpSupply = lpSupply - amount;
+        lpToken.safeTransfer(address(msg.sender), amount);
+        emit NodeStakingEmergencyWithdraw(msg.sender, amount);
+    }
+
+    /**
+     * @notice Harvest proceeds msg.sender
+     */
+    function claimReward() public returns (uint256) {
+        updatePool();
+        NodeStakingUserInfo storage user = userInfo[msg.sender];
+        uint256 totalPending = pendingReward(msg.sender);
+
+        user.pendingReward = 0;
+        user.rewardDebt =
+            (requireStakeAmount * userRunningNode[msg.sender] * accRewardPerShare) /
+            (ACCUMULATED_MULTIPLIER);
+        if (totalPending > 0) {
+            safeRewardTransfer(msg.sender, totalPending);
+        }
+        emit NodeStakingRewardsHarvested(msg.sender, totalPending);
+        return totalPending;
+    }
+
+    /**
+     * @notice Withdraw LP tokens from
+     * @param _amount amount to withdraw
+     * @param _harvestReward whether the user want to claim the rewards or not
+     */
+    function _withdraw(uint256 _amount, bool _harvestReward) internal {
+        NodeStakingUserInfo storage user = userInfo[msg.sender];
+        require(user.amount >= _amount, "NodeStakingPool: invalid amount");
+        require(isInWithdrawTime(user.stakeTime), "NodeStakingPool: not in withdraw time");
+
+        if (_harvestReward || user.amount == _amount) {
+            claimReward();
+        } else {
+            updatePool();
+            uint256 pending = ((requireStakeAmount * userRunningNode[msg.sender] * accRewardPerShare) /
+                ACCUMULATED_MULTIPLIER) - user.rewardDebt;
+            if (pending > 0) {
+                user.pendingReward = user.pendingReward + pending;
+            }
+        }
+        user.amount -= _amount;
+        user.rewardDebt =
+            (requireStakeAmount * userRunningNode[msg.sender] * accRewardPerShare) /
+            ACCUMULATED_MULTIPLIER;
+        lpSupply = lpSupply - _amount;
+    }
+
+    function isInWithdrawTime(uint256 _startTime) public view returns (bool) {
+        uint256 duration = block.timestamp - _startTime;
+        uint256 tmp = duration / (lockupDuration + withdrawPeriod);
+        uint256 currentTime = duration - tmp * (lockupDuration + withdrawPeriod);
+
+        return currentTime >= lockupDuration;
+    }
+
+    /**
+     * @notice Safe reward transfer function, just in case if reward distributor dose not have enough reward tokens.
+     * @param _to address of the receiver
+     * @param _amount amount of the reward token
+     */
+    function safeRewardTransfer(address _to, uint256 _amount) internal {
+        uint256 bal = rewardToken.balanceOf(rewardDistributor);
+
+        require(_amount <= bal, "NodeStakingPool: not enough reward token");
+
+        rewardToken.safeTransferFrom(rewardDistributor, _to, _amount);
+    }
+}

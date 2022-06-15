@@ -6,12 +6,12 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment): Pr
   const { deploy } = deployments;
   const { deployer } = await getNamedAccounts();
 
-  await deploy("Greeter", {
+  await deploy("Payment", {
     from: deployer,
-    args: ["Say hello, be nice"],
+    args: [deployer, deployer, 0], // change me
     log: true,
   });
 };
 
-func.tags = ["Greeter"];
+func.tags = ["Payment"];
 export default func;
