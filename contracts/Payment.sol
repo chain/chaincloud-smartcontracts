@@ -25,6 +25,7 @@ contract Payment {
 
     event Pay(address payer, uint256 amount, PayType payType);
     event ChangeOwner(address oldOwner, address newOwner);
+    event SetPayAmount(PayType payType, uint256 amount);
     event UpdateContractInfo(address treasury, address token);
 
     modifier onlyOwner() {
@@ -32,7 +33,10 @@ contract Payment {
         _;
     }
 
-    function setPayAmount(PayType _type) external onlyOwner {}
+    function setPayAmount(PayType _type, uint256 _amount) external onlyOwner {
+        payAmount[_type] = _amount;
+        emit SetPayAmount(_type, _amount);
+    }
 
     function pay(PayType _type) external {
         IERC20(token).transferFrom(msg.sender, treasury, payAmount[_type]);

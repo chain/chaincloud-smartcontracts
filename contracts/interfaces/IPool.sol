@@ -1,26 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity >=0.7.1;
+pragma solidity 0.8.11;
+
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface IPool {
-    // normal pool
     function initialize(
-        address _token,
-        uint256 _duration,
-        uint256 _openTime,
-        address _offeredCurrency,
-        uint256 _offeredCurrencyDecimals,
-        uint256 _offeredRate,
-        address _walletAddress,
-        address _signer
-    ) external;
-
-    // pre-sale pool
-    function initialize(
-        address _token,
-        address _offeredCurrency,
-        uint256 _offeredRate,
-        uint256 _offeredCurrencyDecimals,
-        address _wallet,
-        address _signer
+        IERC20 _rewardToken,
+        uint256 _rewardPerBlock,
+        uint256 _startBlock,
+        uint256 _endBlock,
+        IERC20 _stakeToken,
+        uint256 _delayDuration
     ) external;
 }
