@@ -23,9 +23,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         uint256 amount; // How many LP tokens the user has provided.
         uint256 rewardDebt; // Reward debt. See explanation below.
         uint256 pendingReward; // Reward but not harvest
-        // uint256 boostRewardAppliciableAt; // the time user can have reward after first deposit
-        // uint256 boostReward; // reward from staking block to nextRewardBlock
-        //
+
         //   pending reward = (user.amount * accRewardPerShare) - user.rewardDebt
         //
         // Whenever a user deposits or withdraws LP tokens to a  Here's what happens:
@@ -415,22 +413,4 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
     ) public view returns (uint256) {
         return (_userBalance * _duration * rewardPerBlock) / _totalSupply;
     }
-
-    // function claimBoostReward(address _userAddress) public returns (uint256) {
-    //     NodeStakingUserInfo memory user = userInfo[_userAddress];
-    //     if (block.number < user.boostRewardAppliciableAt) return 0;
-
-    //     rewardToken.safeTransferFrom(rewardDistributor, _to, user.boostReward);
-    //     emit NodeStakingClaimBoostReward(_userAddress, user.boostReward);
-    //     return user.boostReward;
-    // }
-
-    // function _boostReward(address _userAddress) private returns (uint256) {
-    //     NodeStakingUserInfo memory user = userInfo[_userAddress];
-    //     if (block.number < user.boostRewardAppliciableAt) return 0;
-
-    //     rewardToken.safeTransferFrom(rewardDistributor, _to, user.boostReward);
-    //     emit NodeStakingClaimBoostReward(_userAddress, user.boostReward);
-    //     return user.boostReward;
-    // }
 }
