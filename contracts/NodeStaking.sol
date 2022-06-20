@@ -261,7 +261,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         // TODO: calculate reward from lastRewardBlock to current block and add to pending reward
         uint256 tempRewardDebt = rewardInTimeForUser(totalRunningNode, 1, block.number - lastRewardBlock);
 
-        user.pendingReward = user.pendingReward + pending + boostReward;
+        user.pendingReward = user.pendingReward + pending;
         user.rewardDebt =
             tempRewardDebt +
             (requireStakeAmount * userRunningNode[_user] * accRewardPerShare) /
@@ -288,7 +288,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
      * @param _harvestReward whether the user want to claim the rewards or not
      */
     function withdraw(uint256 _count, bool _harvestReward) external {
-        require(isInWithdrawTime(userInfo[_user].stakeTime), "NodeStakingPool: not in withdraw time");
+        require(isInWithdrawTime(userInfo[msg.sender].stakeTime), "NodeStakingPool: not in withdraw time");
 
         uint256 amount = _count * requireStakeAmount;
 
