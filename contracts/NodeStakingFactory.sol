@@ -27,6 +27,20 @@ contract NodeStakingPoolFactory is Initializable, OwnableUpgradeable, PausableUp
     }
 
     /**
+     * @notice Pause contract
+     */
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /**
+     * @notice Unpause contract
+     */
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
+    /**
      * @notice Get the number of all created pools
      * @return Return number of created pools
      */

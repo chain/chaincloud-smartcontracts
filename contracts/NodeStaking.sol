@@ -27,7 +27,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         //   pending reward = (user.amount * accRewardPerShare) - user.rewardDebt
         //
         // Whenever a user deposits or withdraws LP tokens to a  Here's what happens:
-        //   1. The pool's `accRewardPerShare` (and `lastRewardBlock`) gets updated.
+        //   1. The pool's `accRewardPerShare` (and `lastRewardTimeStamp`) gets updated.
         //   2. User receives the pending reward sent to his/her address.
         //   3. User's `amount` gets updated.
         //   4. User's `rewardDebt` gets updated.
@@ -35,7 +35,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
     IERC20 public stakeToken; // Address of LP token contract.
     uint256 public stakeTokenSupply; // Total lp tokens deposited to this
     uint256 public totalRunningNode; // Total lp tokens deposited to this
-    uint256 public lastRewardBlock; // Last block number that rewards distribution occurs.
+    uint256 public lastRewardTimeStamp; // Last block number that rewards distribution occurs.
     uint256 public accRewardPerShare; // Accumulated rewards per share, times 1e12. See below.
     uint256 public delayDuration; // The duration user need to wait when withdraw.
     uint256 public requireStakeAmount; // stake amount need for user to run node
@@ -48,7 +48,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
     // The reward token!
     IERC20 public rewardToken;
     // Total rewards for each block.
-    uint256 public rewardPerBlock;
+    uint256 public rewardPerSecond;
     // The reward distribution address
     address public rewardDistributor;
     // Allow emergency withdraw feature
@@ -77,12 +77,12 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
     /**
      * @notice Initialize the contract, get called in the first time deploy
      * @param _rewardToken the reward token address
-     * @param _rewardPerBlock the number of reward tokens that got unlocked each block
+     * @param _rewardPerSecond the number of reward tokens that got unlocked each block
      * @param _startBlock the block number when farming start
      */
     function initialize(
         IERC20 _rewardToken,
-        uint256 _rewardPerBlock,
+        uint256 _rewardPerSecond,
         uint256 _startBlock,
         uint256 _endBlock,
         IERC20 _stakeToken,
@@ -94,16 +94,16 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         require(_startBlock < _endBlock, "NodeStakingPool: invalid start block or end block");
 
         rewardToken = _rewardToken;
-        rewardPerBlock = _rewardPerBlock;
+        rewardPerSecond = _rewardPerSecond;
         startBlockNumber = _startBlock;
         endBlockNumber = _endBlock;
 
-        lastRewardBlock = block.number > startBlockNumber ? block.number : startBlockNumber;
+        lastRewardTimeStamp = block.timestamp > startBlockNumber ? block.timestamp : startBlockNumber;
         stakeToken = _stakeToken;
         stakeTokenSupply = 0;
         totalRunningNode = 0;
         requireStakeAmount = 0;
-        lastRewardBlock = lastRewardBlock;
+        lastRewardTimeStamp = lastRewardTimeStamp;
         accRewardPerShare = 0;
     }
 
@@ -145,7 +145,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
      * @notice Set the end block number. Can only be called by the owner.
      */
     function setEndBlock(uint256 _endBlockNumber) external onlyOwner {
-        require(_endBlockNumber > block.number, "NodeStakingPool: invalid reward distributor");
+        require(_endBlockNumber > block.timestamp, "NodeStakingPool: invalid reward distributor");
         endBlockNumber = _endBlockNumber;
     }
 
@@ -161,13 +161,26 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         return _to - _from;
     }
 
+    function stakingTime(uint256 _from, uint256 _to) public view returns (uint256) {
+        if (endBlockNumber > 0 && _to > endBlockNumber) {
+            return endBlockNumber > _from ? endBlockNumber - _from : 0;
+        }
+
+        uint256 duration = _to - _from;
+
+        // tmp is the times that done lockupDuration
+        uint256 tmp = duration / (lockupDuration + withdrawPeriod);
+
+        return tmp * lockupDuration;
+    }
+
     /**
      * @notice Update number of reward per block
-     * @param _rewardPerBlock the number of reward tokens that got unlocked each block
+     * @param _rewardPerSecond the number of reward tokens that got unlocked each block
      */
-    function setRewardPerBlock(uint256 _rewardPerBlock) external onlyOwner {
+    function setRewardPerSecond(uint256 _rewardPerSecond) external onlyOwner {
         updatePool();
-        rewardPerBlock = _rewardPerBlock;
+        rewardPerSecond = _rewardPerSecond;
     }
 
     /**
@@ -178,9 +191,9 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         NodeStakingUserInfo storage user = userInfo[_user];
 
         uint256 _accRewardPerShare = accRewardPerShare;
-        if (block.number > lastRewardBlock && stakeTokenSupply != 0) {
-            uint256 multiplier = timeMultiplier(lastRewardBlock, block.number);
-            uint256 poolReward = multiplier * rewardPerBlock;
+        if (block.timestamp > lastRewardTimeStamp && stakeTokenSupply != 0) {
+            uint256 multiplier = timeMultiplier(lastRewardTimeStamp, block.timestamp);
+            uint256 poolReward = multiplier * rewardPerSecond;
             _accRewardPerShare = _accRewardPerShare + ((poolReward * ACCUMULATED_MULTIPLIER) / stakeTokenSupply);
         }
         return
@@ -193,17 +206,17 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
      * @notice Update reward variables of the given pool to be up-to-date.
      */
     function updatePool() public {
-        if (block.number <= lastRewardBlock) {
+        if (block.timestamp <= lastRewardTimeStamp) {
             return;
         }
         if (stakeTokenSupply == 0) {
-            lastRewardBlock = block.number;
+            lastRewardTimeStamp = block.timestamp;
             return;
         }
-        uint256 multiplier = timeMultiplier(lastRewardBlock, block.number);
-        uint256 poolReward = multiplier * rewardPerBlock;
+        uint256 multiplier = timeMultiplier(lastRewardTimeStamp, block.timestamp);
+        uint256 poolReward = multiplier * rewardPerSecond;
         accRewardPerShare = (accRewardPerShare + ((poolReward * ACCUMULATED_MULTIPLIER) / stakeTokenSupply));
-        lastRewardBlock = block.number;
+        lastRewardTimeStamp = block.timestamp;
     }
 
     /**
@@ -347,6 +360,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
 
     function isInWithdrawTime(uint256 _startTime) public view returns (bool) {
         uint256 duration = block.timestamp - _startTime;
+        // tmp is the times that done lockupDuration
         uint256 tmp = duration / (lockupDuration + withdrawPeriod);
         uint256 currentTime = duration - tmp * (lockupDuration + withdrawPeriod);
 

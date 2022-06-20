@@ -3,15 +3,11 @@
 pragma solidity 0.8.11;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 
-contract Payment {
-    constructor(address _treasury, address _token) {
-        treasury = _treasury;
-        token = _token;
-        owner = msg.sender;
-    }
-
-    // pay type
+contract Payment is Initializable, OwnableUpgradeable, PausableUpgradeable {
     enum PayType {
         PROVIDER_NODE_FEE_MONTHLY,
         PREMIUM_FEE_MONTHLY,
@@ -19,38 +15,48 @@ contract Payment {
     }
 
     address public treasury;
-    address public token;
-    address public owner;
-    mapping(PayType => uint256) public payAmount;
+    // type + token => amount
+    mapping(PayType => mapping(address => uint256)) public payAmount;
 
-    event Pay(address payer, uint256 amount, PayType payType);
-    event ChangeOwner(address oldOwner, address newOwner);
-    event SetPayAmount(PayType payType, uint256 amount);
-    event UpdateContractInfo(address treasury, address token);
+    event Pay(address payer, address token, uint256 amount, PayType payType);
+    event SetPayAmount(PayType payType, address token, uint256 amount);
+    event ChangeTreasury(address treasury);
 
-    modifier onlyOwner() {
-        require(msg.sender == owner, "Not owner of contract");
-        _;
-    }
-
-    function setPayAmount(PayType _type, uint256 _amount) external onlyOwner {
-        payAmount[_type] = _amount;
-        emit SetPayAmount(_type, _amount);
-    }
-
-    function pay(PayType _type) external {
-        IERC20(token).transferFrom(msg.sender, treasury, payAmount[_type]);
-        emit Pay(msg.sender, payAmount[_type], _type);
-    }
-
-    function changeOwner(address _owner) external onlyOwner {
-        emit ChangeOwner(owner, _owner);
-        owner = _owner;
-    }
-
-    function updateContract(address _treasury, address _token) external onlyOwner {
+    function initialize(address _treasury) external initializer {
+        __Ownable_init();
         treasury = _treasury;
-        token = _token;
-        emit UpdateContractInfo(_treasury, _token);
+    }
+
+    /**
+     * @notice Pause contract
+     */
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /**
+     * @notice Unpause contract
+     */
+    function unpause() external onlyOwner {
+        _unpause();
+    }
+
+    function setPayAmount(
+        PayType _type,
+        address _token,
+        uint256 _amount
+    ) external onlyOwner {
+        payAmount[_type][_token] = _amount;
+        emit SetPayAmount(_type, _token, _amount);
+    }
+
+    function pay(PayType _type, address _token) external {
+        IERC20(_token).transferFrom(msg.sender, treasury, payAmount[_type][_token]);
+        emit Pay(msg.sender, _token, payAmount[_type][_token], _type);
+    }
+
+    function changeTreasury(address _treasury) external onlyOwner {
+        treasury = _treasury;
+        emit ChangeTreasury(_treasury);
     }
 }
