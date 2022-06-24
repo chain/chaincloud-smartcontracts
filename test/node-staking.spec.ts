@@ -30,13 +30,34 @@ describe("Node Staking", () => {
   });
 
   it("test", async () => {
-    // user1 stake
-    await nodeStaking.deposit(1);
-    // user1 stake again
-    await nodeStaking.deposit(1);
+    await nodeStaking.setRequireStakeAmount(ethers.utils.parseEther("100"));
+
+    // check balance of user 1
+    const user1Balance01 = await STRK.balanceOf(account1.address);
+    console.log("\x1b[36m%s\x1b[0m", "user1Balance01", user1Balance01.toString(), user1Balance01.toString().length);
+
+    // approve STRK
+    await STRK.connect(account1).approve(nodeStaking.address, ethers.utils.parseUnits("100", 35));
+    // user1 stake count 1 => take 100
+    await nodeStaking.connect(account1).deposit(1);
+    // user1 stake again with count = 2 => take 200
+    await nodeStaking.connect(account1).deposit(2);
+
+    // enable address for user 1
+    await nodeStaking.enableAddress(account1.address);
+    await nodeStaking.enableAddress(account1.address);
+    await nodeStaking.enableAddress(account1.address);
     // increase to 100 block
-    await time.advanceBlockTo(100);
+    await time.advanceBlockTo(115);
+
+    // check balance of user 1
+    const user1Balance02 = await STRK.balanceOf(account1.address);
+    console.log("\x1b[36m%s\x1b[0m", "user1Balance02", user1Balance02.toString(), user1Balance02.toString().length);
+
     // user1 withdraw
-    // user1 get
+    await nodeStaking.connect(account1).withdraw(3, true);
+    // check balance of user 1
+    const user1Balance03 = await STRK.balanceOf(account1.address);
+    console.log("\x1b[36m%s\x1b[0m", "user1Balance03", user1Balance03.toString(), user1Balance03.toString().length);
   });
 });

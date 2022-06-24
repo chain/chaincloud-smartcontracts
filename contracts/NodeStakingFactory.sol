@@ -79,6 +79,8 @@ contract NodeStakingPoolFactory is Initializable, OwnableUpgradeable, PausableUp
         uint256 _startBlock,
         uint256 _endBlock,
         address _stakeToken,
+        uint256 _lockupDuration,
+        uint256 _withdrawPeriod,
         uint256 _delayDuration
     ) external whenNotPaused returns (address pool) {
         require(_stakeToken != address(0), "NodeStakingPoolFactory: not allow zero address");
@@ -96,6 +98,8 @@ contract NodeStakingPoolFactory is Initializable, OwnableUpgradeable, PausableUp
             _startBlock,
             _endBlock,
             IERC20(_stakeToken),
+            _lockupDuration,
+            _withdrawPeriod,
             _delayDuration
         );
         getPools[msg.sender][_rewardToken].push(pool);

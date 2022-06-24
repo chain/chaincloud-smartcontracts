@@ -75,6 +75,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
     event NodeStakingEmergencyWithdraw(address user, uint256 amount);
     event NodeStakingRewardsHarvested(address user, uint256 amount);
     event NodeStakingClaimBoostReward(address user, uint256 amount);
+    event SetRequireStakeAmount(uint256 amount);
 
     /**
      * @notice Initialize the contract, get called in the first time deploy
@@ -88,25 +89,31 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         uint256 _startBlock,
         uint256 _endBlock,
         IERC20 _stakeToken,
+        uint256 _lockupDuration,
+        uint256 _withdrawPeriod,
         uint256 _delayDuration
     ) public initializer {
         __Ownable_init();
-
+        transferOwnership(tx.origin);
         require(address(_rewardToken) != address(0), "NodeStakingPool: invalid reward token address");
         require(_startBlock < _endBlock, "NodeStakingPool: invalid start block or end block");
+        require(_lockupDuration > 0, "NodeStakingPool: lockupDuration must be gt 0");
+        require(_withdrawPeriod > 0, "NodeStakingPool: withdrawPeriod must be gt 0");
 
         rewardToken = _rewardToken;
         rewardPerBlock = _rewardPerBlock;
         startBlockNumber = _startBlock;
         endBlockNumber = _endBlock;
+        lockupDuration = _lockupDuration;
+        withdrawPeriod = _withdrawPeriod;
 
         lastRewardBlock = block.number > startBlockNumber ? block.number : startBlockNumber;
         stakeToken = _stakeToken;
         stakeTokenSupply = 0;
         totalRunningNode = 0;
         requireStakeAmount = 0;
-        lastRewardBlock = lastRewardBlock;
         accRewardPerShare = 0;
+        // updatePool();
     }
 
     /**
@@ -132,6 +139,15 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         updatePool();
 
         delayDuration = _delayDuration;
+    }
+
+    /**
+     * @notice Set require stake amount
+     * @param _requireStakeAmount amount want to set
+     */
+    function setRequireStakeAmount(uint256 _requireStakeAmount) external onlyOwner {
+        requireStakeAmount = _requireStakeAmount;
+        emit SetRequireStakeAmount(_requireStakeAmount);
     }
 
     /**
@@ -164,7 +180,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
     }
 
     function getNextRewardBlock() public view returns (uint256) {
-        uint256 currBlockNumber = block.timestamp;
+        uint256 currBlockNumber = block.number;
         if (currBlockNumber > endBlockNumber) {
             currBlockNumber = endBlockNumber;
         }
@@ -173,7 +189,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
 
         // tmp is the times that done lockupDuration
         uint256 tmp = duration / (lockupDuration + withdrawPeriod);
-        return tmp * lockupDuration + withdrawPeriod;
+        return startBlockNumber + tmp * lockupDuration + withdrawPeriod;
     }
 
     function stakingTime(uint256 _from, uint256 _to) public view returns (uint256) {
@@ -232,6 +248,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         nextRewardBlock = getNextRewardBlock();
         uint256 multiplier = stakingTime(lastRewardBlock, block.number);
         uint256 poolReward = multiplier * rewardPerBlock;
+        // TODO: stakeTokenSupply or count*requireAmount
         accRewardPerShare = (accRewardPerShare + ((poolReward * ACCUMULATED_MULTIPLIER) / stakeTokenSupply));
         lastRewardBlock = nextRewardBlock - withdrawPeriod;
     }
@@ -265,12 +282,13 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
             (requireStakeAmount * userRunningNode[_user] * accRewardPerShare) /
             ACCUMULATED_MULTIPLIER;
 
-        totalRunningNode = totalRunningNode + 1;
         userRunningNode[_user] = userRunningNode[_user] + 1;
+        totalRunningNode = totalRunningNode + 1;
     }
 
     function disableAddress(address _user) external onlyOwner {
         NodeStakingUserInfo storage user = userInfo[_user];
+        // require(isInWithdrawTime(user.stakeTime), "NodeStakingPool: not in withdraw time");
         updatePool();
         uint256 pending = ((requireStakeAmount * userRunningNode[_user] * accRewardPerShare) / ACCUMULATED_MULTIPLIER) -
             user.rewardDebt;
@@ -411,6 +429,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         uint256 _userBalance,
         uint256 _duration
     ) public view returns (uint256) {
-        return (_userBalance * _duration * rewardPerBlock) / _totalSupply;
+        if (_totalSupply == 0) return 0;
+        return (_userBalance * _duration * rewardPerBlock) / (_totalSupply + _userBalance);
     }
 }
