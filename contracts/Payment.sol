@@ -18,7 +18,7 @@ contract Payment is Initializable, OwnableUpgradeable, PausableUpgradeable {
     // type + token => amount
     mapping(PayType => mapping(address => uint256)) public payAmount;
 
-    event Pay(address payer, address token, uint256 amount, PayType payType);
+    event Pay(address payer, address token, uint256 amount, PayType payType, uint256 requestId);
     event SetPayAmount(PayType payType, address token, uint256 amount);
     event ChangeTreasury(address treasury);
 
@@ -50,9 +50,18 @@ contract Payment is Initializable, OwnableUpgradeable, PausableUpgradeable {
         emit SetPayAmount(_type, _token, _amount);
     }
 
-    function pay(PayType _type, address _token) external {
-        IERC20(_token).transferFrom(msg.sender, treasury, payAmount[_type][_token]);
-        emit Pay(msg.sender, _token, payAmount[_type][_token], _type);
+    function pay(
+        PayType _type,
+        address _token,
+        uint256 _requestId
+    ) external payable {
+        if (_token == address(0)) {
+            require(msg.value == payAmount[_type][address(0)], "Payment: not valid pay amount");
+        } else {
+            IERC20(_token).transferFrom(msg.sender, treasury, payAmount[_type][_token]);
+        }
+
+        emit Pay(msg.sender, _token, payAmount[_type][_token], _type, _requestId);
     }
 
     function changeTreasury(address _treasury) external onlyOwner {
