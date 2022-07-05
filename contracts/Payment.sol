@@ -8,7 +8,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 
 contract Payment is Initializable, OwnableUpgradeable, PausableUpgradeable {
-    enum PayType {
+    enum PaymentType {
         PROVIDER_NODE_FEE_MONTHLY,
         PREMIUM_FEE_MONTHLY,
         ENTERPRISE_FEE_MONTHLY
@@ -16,10 +16,10 @@ contract Payment is Initializable, OwnableUpgradeable, PausableUpgradeable {
 
     address public treasury;
     // type + token => amount
-    mapping(PayType => mapping(address => uint256)) public payAmount;
+    mapping(PaymentType => mapping(address => uint256)) public payAmount;
 
-    event Pay(address payer, address token, uint256 amount, PayType payType, uint256 requestId);
-    event SetPayAmount(PayType payType, address token, uint256 amount);
+    event Payment(address payer, address token, uint256 amount, PaymentType paymentType, uint256 paymentId);
+    event SetPayAmount(PaymentType paymentType, address token, uint256 amount);
     event ChangeTreasury(address treasury);
 
     function initialize(address _treasury) external initializer {
@@ -42,7 +42,7 @@ contract Payment is Initializable, OwnableUpgradeable, PausableUpgradeable {
     }
 
     function setPayAmount(
-        PayType _type,
+        PaymentType _type,
         address _token,
         uint256 _amount
     ) external onlyOwner {
@@ -51,9 +51,9 @@ contract Payment is Initializable, OwnableUpgradeable, PausableUpgradeable {
     }
 
     function pay(
-        PayType _type,
+        PaymentType _type,
         address _token,
-        uint256 _requestId
+        uint256 _paymentId
     ) external payable {
         if (_token == address(0)) {
             require(msg.value == payAmount[_type][address(0)], "Payment: not valid pay amount");
@@ -61,7 +61,7 @@ contract Payment is Initializable, OwnableUpgradeable, PausableUpgradeable {
             IERC20(_token).transferFrom(msg.sender, treasury, payAmount[_type][_token]);
         }
 
-        emit Pay(msg.sender, _token, payAmount[_type][_token], _type, _requestId);
+        emit Payment(msg.sender, _token, payAmount[_type][_token], _type, _paymentId);
     }
 
     function changeTreasury(address _treasury) external onlyOwner {
