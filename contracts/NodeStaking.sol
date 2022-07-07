@@ -17,12 +17,14 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
 
     uint256 public constant _MAXIMUM_DELAY_DURATION = 35 days; // maximum 35 days delay
 
-    // Info of each user.
+    // Info of each user + id.
     struct NodeStakingUserInfo {
         uint256 stakeTime; // next reward block
         uint256 amount; // How many LP tokens the user has provided.
         uint256 rewardDebt; // Reward debt. See explanation below.
         uint256 pendingReward; // Reward but not harvest
+        // TODO: if switch from 1 to 0, transfer reward to user before set stakeTime to 0
+        bool status; // 0: inactive, 1: active
 
         //   pending reward = (user.amount * accRewardPerShare) - user.rewardDebt
         //
@@ -60,7 +62,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
     // Allow emergency withdraw feature
     bool public allowEmergencyWithdraw;
     // Info of each user that stakes LP tokens.
-    mapping(address => NodeStakingUserInfo) public userInfo;
+    mapping(address => mapping(uint256 => NodeStakingUserInfo)) public userInfo;
     // The block number when rewards mining starts.
     uint256 public startBlockNumber;
     // The block number when rewards mining ends.
@@ -71,8 +73,11 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
     uint256 public lockupDuration;
     // the weight of provider to earn reward
     mapping(address => uint256) public userRunningNode;
+    mapping(address => uint256) public userNodeCount;
     // Info of pending withdrawals.
-    mapping(address => NodeStakingPendingWithdrawal) public pendingWithdrawals;
+    mapping(address => mapping(uint256 => NodeStakingPendingWithdrawal)) public pendingWithdrawals;
+    // pending reward in withdraw period
+    mapping(address => mapping(uint256 => LockWithdrawReward)) public pendingRewardInWithdrawPeriod;
 
     event NodeStakingDeposit(address user, uint256 amount);
     event NodeStakingWithdraw(address user, uint256 amount);
@@ -272,9 +277,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
             user.rewardDebt;
 
         if (pending > 0) {
-            uint256 multiplier = timeMultiplier(lastRewardBlock, block.number);
-            uint256 lockReward = _getWithdrawPendingReward(multiplier, pending);
-            user.pendingReward = user.pendingReward + pending - lockReward;
+            user.pendingReward = user.pendingReward + pending;
         }
         user.rewardDebt = (requireStakeAmount * userRunningNode[_user] * accRewardPerShare) / ACCUMULATED_MULTIPLIER;
 
@@ -290,9 +293,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
             user.rewardDebt;
 
         if (pending > 0) {
-            uint256 multiplier = timeMultiplier(lastRewardBlock, block.number);
-            uint256 lockReward = _getWithdrawPendingReward(multiplier, pending);
-            user.pendingReward = user.pendingReward + pending - lockReward;
+            user.pendingReward = user.pendingReward + pending;
         }
         user.rewardDebt = (requireStakeAmount * userRunningNode[_user] * accRewardPerShare) / ACCUMULATED_MULTIPLIER;
         totalRunningNode = totalRunningNode - 1;
@@ -304,7 +305,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
      * @param _count count to withdraw
      * @param _harvestReward whether the user want to claim the rewards or not
      */
-    function withdraw(uint256 _count, bool _harvestReward) external {
+    function withdraw(uint256 _recordId, bool _harvestReward) external {
         require(isInWithdrawTime(userInfo[msg.sender].stakeTime), "NodeStakingPool: not in withdraw time");
 
         uint256 amount = _count * requireStakeAmount;
@@ -361,6 +362,8 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
      * @notice Harvest proceeds msg.sender
      */
     function claimReward() public returns (uint256) {
+        uint256 multiplier = timeMultiplier(lastRewardBlock, block.number);
+
         updatePool();
         NodeStakingUserInfo storage user = userInfo[msg.sender];
         uint256 totalPending = pendingReward(msg.sender);
@@ -369,11 +372,24 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         user.rewardDebt =
             (requireStakeAmount * userRunningNode[msg.sender] * accRewardPerShare) /
             (ACCUMULATED_MULTIPLIER);
+
+        uint256 lockReward = _getWithdrawPendingReward(multiplier, totalPending);
         if (totalPending > 0) {
-            safeRewardTransfer(msg.sender, totalPending);
+            safeRewardTransfer(msg.sender, totalPending - lockReward);
         }
 
         // TODO: claim pending reward in withdraw time
+        LockWithdrawReward storage record = pendingRewardInWithdrawPeriod[msg.sender];
+        if (record.applicableAt > block.number) {
+            safeRewardTransfer(msg.sender, record.reward);
+            record.reward = 0;
+        }
+
+        if (lockReward > 0) {
+            // TODO: next locking time
+            record.applicableAt = getNextStartLockingTime();
+            record.reward += lockReward;
+        }
         emit NodeStakingRewardsHarvested(msg.sender, totalPending);
         return totalPending;
     }
@@ -383,12 +399,12 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
      * @param _amount amount to withdraw
      * @param _harvestReward whether the user want to claim the rewards or not
      */
-    function _withdraw(uint256 _amount, bool _harvestReward) internal {
+    function _withdraw(bool _harvestReward) internal {
         NodeStakingUserInfo storage user = userInfo[msg.sender];
-        require(user.amount >= _amount, "NodeStakingPool: invalid amount");
+        uint256 _amount = user.amount;
         require(isInWithdrawTime(user.stakeTime), "NodeStakingPool: not in withdraw time");
 
-        if (_harvestReward || user.amount == _amount) {
+        if (_harvestReward) {
             claimReward();
         } else {
             updatePool();
@@ -396,12 +412,10 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
                 ACCUMULATED_MULTIPLIER) - user.rewardDebt;
 
             if (pending > 0) {
-                uint256 multiplier = timeMultiplier(lastRewardBlock, block.number);
-                uint256 lockReward = _getWithdrawPendingReward(multiplier, pending);
-                user.pendingReward = user.pendingReward + pending - lockReward;
+                user.pendingReward = user.pendingReward + pending;
             }
         }
-        user.amount -= _amount;
+        user.amount = 0;
         user.rewardDebt =
             (requireStakeAmount * userRunningNode[msg.sender] * accRewardPerShare) /
             ACCUMULATED_MULTIPLIER;
@@ -415,6 +429,14 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         uint256 currentTime = duration - tmp * (lockupDuration + withdrawPeriod);
 
         return currentTime >= lockupDuration;
+    }
+
+    function getNextStartLockingTime(uint256 _startTime) public view returns (uint256) {
+        uint256 duration = block.number - _startTime;
+        // multiplier is the times that done lockupDuration
+        uint256 multiplier = duration / (lockupDuration + withdrawPeriod);
+
+        return (multiplier + 1) * (lockupDuration + withdrawPeriod);
     }
 
     /**
