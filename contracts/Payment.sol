@@ -17,9 +17,19 @@ contract Payment is Initializable, OwnableUpgradeable, PausableUpgradeable {
     address public treasury;
     // type + token => amount
     mapping(PaymentType => mapping(address => uint256)) public payAmount;
+    mapping(PaymentType => mapping(address => uint256)) public discount; // unit 1e18
+    uint256 public constant HUNDRED_PERCENT = 1e18;
 
-    event Payment(address payer, address token, uint256 amount, PaymentType paymentType, uint256 paymentId);
+    event Payment(
+        address payer,
+        address token,
+        uint256 amount,
+        uint256 discount,
+        PaymentType paymentType,
+        uint256 paymentId
+    );
     event SetPayAmount(PaymentType paymentType, address token, uint256 amount);
+    event SetDiscount(PaymentType paymentType, address token, uint256 discount);
     event ChangeTreasury(address treasury);
 
     function initialize(address _treasury) external initializer {
@@ -50,6 +60,15 @@ contract Payment is Initializable, OwnableUpgradeable, PausableUpgradeable {
         emit SetPayAmount(_type, _token, _amount);
     }
 
+    function setDiscount(
+        PaymentType _type,
+        address _token,
+        uint256 _discount
+    ) external onlyOwner {
+        discount[_type][_token] = _discount;
+        emit SetDiscount(_type, _token, _discount);
+    }
+
     function pay(
         PaymentType _type,
         address _token,
@@ -58,10 +77,14 @@ contract Payment is Initializable, OwnableUpgradeable, PausableUpgradeable {
         if (_token == address(0)) {
             require(msg.value == payAmount[_type][address(0)], "Payment: not valid pay amount");
         } else {
-            IERC20(_token).transferFrom(msg.sender, treasury, payAmount[_type][_token]);
+            IERC20(_token).transferFrom(
+                msg.sender,
+                treasury,
+                (payAmount[_type][_token] * discount[_type][_token]) / HUNDRED_PERCENT
+            );
         }
 
-        emit Payment(msg.sender, _token, payAmount[_type][_token], _type, _paymentId);
+        emit Payment(msg.sender, _token, payAmount[_type][_token], discount[_type][_token], _type, _paymentId);
     }
 
     function changeTreasury(address _treasury) external onlyOwner {

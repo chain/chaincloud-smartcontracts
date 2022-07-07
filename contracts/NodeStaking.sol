@@ -46,6 +46,11 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         uint256 applicableAt;
     }
 
+    struct LockWithdrawReward {
+        uint256 reward;
+        uint256 applicableAt;
+    }
+
     // The reward token!
     IERC20 public rewardToken;
     // Total rewards for each block.
@@ -179,6 +184,11 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         return _to - _from;
     }
 
+    // TODO: nếu ở trong withdraw period thì đây là khoảng thời gian từ lúc bắt đầu withdrawPeriod đến _to
+    function lockRewardTime(uint256 _from, uint256 _to) public view returns (uint256) {
+        return 0;
+    }
+
     function getNextRewardBlock() public view returns (uint256) {
         uint256 currBlockNumber = block.number;
         if (currBlockNumber > endBlockNumber) {
@@ -190,20 +200,6 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         // tmp is the times that done lockupDuration
         uint256 tmp = duration / (lockupDuration + withdrawPeriod);
         return startBlockNumber + tmp * lockupDuration + withdrawPeriod;
-    }
-
-    function stakingTime(uint256 _from, uint256 _to) public view returns (uint256) {
-        if (_from >= _to) return 0;
-        if (endBlockNumber > 0 && _to > endBlockNumber) {
-            return endBlockNumber > _from ? endBlockNumber - _from : 0;
-        }
-
-        uint256 duration = _to - _from;
-
-        // tmp is the times that done lockupDuration
-        uint256 tmp = duration / (lockupDuration + withdrawPeriod);
-
-        return tmp * lockupDuration;
     }
 
     /**
@@ -224,7 +220,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
 
         uint256 _accRewardPerShare = accRewardPerShare;
         if (block.number > lastRewardBlock && stakeTokenSupply != 0) {
-            uint256 multiplier = stakingTime(lastRewardBlock, block.number);
+            uint256 multiplier = timeMultiplier(lastRewardBlock, block.number);
             uint256 poolReward = multiplier * rewardPerBlock;
             _accRewardPerShare = _accRewardPerShare + ((poolReward * ACCUMULATED_MULTIPLIER) / stakeTokenSupply);
         }
@@ -246,10 +242,11 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
             return;
         }
         nextRewardBlock = getNextRewardBlock();
-        uint256 multiplier = stakingTime(lastRewardBlock, block.number);
+        uint256 multiplier = timeMultiplier(lastRewardBlock, block.number);
         uint256 poolReward = multiplier * rewardPerBlock;
         // TODO: stakeTokenSupply or count*requireAmount
-        accRewardPerShare = (accRewardPerShare + ((poolReward * ACCUMULATED_MULTIPLIER) / stakeTokenSupply));
+        accRewardPerShare = (accRewardPerShare +
+            ((poolReward * ACCUMULATED_MULTIPLIER) / (totalRunningNode * requireStakeAmount)));
         lastRewardBlock = nextRewardBlock - withdrawPeriod;
     }
 
@@ -273,14 +270,13 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         updatePool();
         uint256 pending = ((requireStakeAmount * userRunningNode[_user] * accRewardPerShare) / ACCUMULATED_MULTIPLIER) -
             user.rewardDebt;
-        // TODO: calculate reward from lastRewardBlock to current block and add to pending reward
-        uint256 tempRewardDebt = rewardInTimeForUser(totalRunningNode, 1, block.number - lastRewardBlock);
 
-        user.pendingReward = user.pendingReward + pending;
-        user.rewardDebt =
-            tempRewardDebt +
-            (requireStakeAmount * userRunningNode[_user] * accRewardPerShare) /
-            ACCUMULATED_MULTIPLIER;
+        if (pending > 0) {
+            uint256 multiplier = timeMultiplier(lastRewardBlock, block.number);
+            uint256 lockReward = _getWithdrawPendingReward(multiplier, pending);
+            user.pendingReward = user.pendingReward + pending - lockReward;
+        }
+        user.rewardDebt = (requireStakeAmount * userRunningNode[_user] * accRewardPerShare) / ACCUMULATED_MULTIPLIER;
 
         userRunningNode[_user] = userRunningNode[_user] + 1;
         totalRunningNode = totalRunningNode + 1;
@@ -292,7 +288,12 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         updatePool();
         uint256 pending = ((requireStakeAmount * userRunningNode[_user] * accRewardPerShare) / ACCUMULATED_MULTIPLIER) -
             user.rewardDebt;
-        user.pendingReward = user.pendingReward + pending;
+
+        if (pending > 0) {
+            uint256 multiplier = timeMultiplier(lastRewardBlock, block.number);
+            uint256 lockReward = _getWithdrawPendingReward(multiplier, pending);
+            user.pendingReward = user.pendingReward + pending - lockReward;
+        }
         user.rewardDebt = (requireStakeAmount * userRunningNode[_user] * accRewardPerShare) / ACCUMULATED_MULTIPLIER;
         totalRunningNode = totalRunningNode - 1;
         userRunningNode[_user] = userRunningNode[_user] - 1;
@@ -371,6 +372,8 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         if (totalPending > 0) {
             safeRewardTransfer(msg.sender, totalPending);
         }
+
+        // TODO: claim pending reward in withdraw time
         emit NodeStakingRewardsHarvested(msg.sender, totalPending);
         return totalPending;
     }
@@ -391,8 +394,11 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
             updatePool();
             uint256 pending = ((requireStakeAmount * userRunningNode[msg.sender] * accRewardPerShare) /
                 ACCUMULATED_MULTIPLIER) - user.rewardDebt;
+
             if (pending > 0) {
-                user.pendingReward = user.pendingReward + pending;
+                uint256 multiplier = timeMultiplier(lastRewardBlock, block.number);
+                uint256 lockReward = _getWithdrawPendingReward(multiplier, pending);
+                user.pendingReward = user.pendingReward + pending - lockReward;
             }
         }
         user.amount -= _amount;
@@ -431,5 +437,16 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
     ) public view returns (uint256) {
         if (_totalSupply == 0) return 0;
         return (_userBalance * _duration * rewardPerBlock) / (_totalSupply + _userBalance);
+    }
+
+    // TODO: lượng reward trong withdraw period
+    function _getWithdrawPendingReward(uint256 _totalStakeTime, uint256 _totalReward) private returns (uint256) {
+        // get time in withdraw period
+        uint256 duration = 0;
+
+        uint256 reward = (duration * _totalReward) / _totalStakeTime;
+
+        return reward;
+        // TODO: move to pendingWithdraw...
     }
 }
