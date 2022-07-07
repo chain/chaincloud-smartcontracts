@@ -69,6 +69,14 @@ contract Payment is Initializable, OwnableUpgradeable, PausableUpgradeable {
         emit SetDiscount(_type, _token, _discount);
     }
 
+    function getPayAmount(PaymentType _type, address _token) external returns (uint256) {
+        return payAmount[_type][_token];
+    }
+
+    function getDiscountAmount(PaymentType _type, address _token) external returns (uint256) {
+        return discount[_type][_token];
+    }
+
     function pay(
         PaymentType _type,
         address _token,
