@@ -38,7 +38,6 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
     uint256 public lastRewardBlock; // Last block number that rewards distribution occurs.
     uint256 public accRewardPerShare; // Accumulated rewards per share, times 1e12. See below.
     uint256 public requireStakeAmount; // stake amount need for user to run node
-    uint256 public nextRewardBlock; // the lastest time that reward stop calculate and user can be withdraw
 
     struct LockWithdrawReward {
         uint256 reward;
@@ -53,8 +52,6 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
     uint256 public rewardPerBlock;
     // The reward distribution address
     address public rewardDistributor;
-    // Allow emergency withdraw feature
-    bool public allowEmergencyWithdraw;
     // Info of each user that stakes LP tokens.
     mapping(address => mapping(uint256 => NodeStakingUserInfo)) public userInfo;
     // The block number when rewards mining starts.
@@ -80,7 +77,13 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
     event SetEndBlock(uint256 block);
     event SetRewardDistributor(address rewardDistributor);
     event SetRewardPerBlock(uint256 rewardPerBlock);
-    event SetPoolInfor(uint256 rewardPerBlock, uint256 endBlock, uint256 lockupDuration, uint256 withdrawPeriod);
+    event SetPoolInfor(
+        uint256 rewardPerBlock,
+        uint256 endBlock,
+        uint256 lockupDuration,
+        uint256 withdrawPeriod,
+        address rewardDistributor
+    );
 
     /**
      * @notice Initialize the contract, get called in the first time deploy
@@ -96,6 +99,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         uint256 _startBlock,
         uint256 _endBlock,
         IERC20 _stakeToken,
+        address _rewardDistributor,
         uint256 _lockupDuration,
         uint256 _withdrawPeriod
     ) external initializer {
@@ -114,6 +118,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         endBlockNumber = _endBlock;
         lockupDuration = _lockupDuration;
         withdrawPeriod = _withdrawPeriod;
+        rewardDistributor = _rewardDistributor;
 
         lastRewardBlock = block.number > startBlockNumber ? block.number : startBlockNumber;
         stakeToken = _stakeToken;
@@ -161,7 +166,8 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         uint256 _rewardPerBlock,
         uint256 _endBlock,
         uint256 _lockupDuration,
-        uint256 _withdrawPeriod
+        uint256 _withdrawPeriod,
+        address _rewardDistributor
     ) external onlyOwner {
         require(_endBlock > block.number, "NodeStakingPool: end block must be gt block.number");
         require(_lockupDuration > 0, "NodeStakingPool: lockupDuration must be gt 0");
@@ -173,8 +179,9 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         endBlockNumber = _endBlock;
         lockupDuration = _lockupDuration;
         withdrawPeriod = _withdrawPeriod;
+        rewardDistributor = _rewardDistributor;
 
-        emit SetPoolInfor(_rewardPerBlock, _endBlock, _lockupDuration, _withdrawPeriod);
+        emit SetPoolInfor(_rewardPerBlock, _endBlock, _lockupDuration, _withdrawPeriod, _rewardDistributor);
     }
 
     function setRewardPerBlock(uint256 _rewardPerBlock) external {
@@ -203,19 +210,6 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
             return endBlockNumber > _from ? endBlockNumber - _from : 0;
         }
         return _to - _from;
-    }
-
-    function getNextRewardBlock() public view returns (uint256) {
-        uint256 currBlockNumber = block.number;
-        if (currBlockNumber > endBlockNumber) {
-            currBlockNumber = endBlockNumber;
-        }
-
-        uint256 duration = currBlockNumber - startBlockNumber;
-
-        // tmp is the times that done lockupDuration
-        uint256 tmp = duration / (lockupDuration + withdrawPeriod);
-        return startBlockNumber + tmp * lockupDuration + withdrawPeriod;
     }
 
     /**
