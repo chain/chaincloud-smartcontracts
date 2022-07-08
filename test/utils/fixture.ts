@@ -42,7 +42,18 @@ export const fixture: Fixture<IFixture | any> = async ([wallet, account1, , acco
   const startBlock = await time.latestBlock();
   console.log("\x1b[36m%s\x1b[0m", "startBlock", startBlock);
   const endBlock = startBlock.add(1000000000);
-  await nodeStaking.initialize(XCN.address, toWei("1"), startBlock, endBlock, STRK.address, 10, 10, 0);
+  await nodeStaking.initialize(
+    "Solana",
+    "SOL",
+    XCN.address,
+    toWei("1"),
+    startBlock,
+    endBlock,
+    STRK.address,
+    wallet.address,
+    10,
+    10,
+  );
 
   return {
     STRK,
