@@ -16,6 +16,8 @@ contract NodeStakingPoolFactory is Initializable, OwnableUpgradeable, PausableUp
     mapping(address => mapping(address => address[])) public getPools;
     event NodeStakingPoolCreated(
         address registedBy,
+        string name,
+        string symbol,
         address rewardToken,
         address stakeToken,
         address pool,
@@ -74,6 +76,8 @@ contract NodeStakingPoolFactory is Initializable, OwnableUpgradeable, PausableUp
      * @dev To register, you MUST have an ERC20 token
      */
     function registerPool(
+        string memory _name,
+        string memory _symbol,
         address _rewardToken,
         uint256 _rewardPerBlock,
         uint256 _startBlock,
@@ -93,6 +97,8 @@ contract NodeStakingPoolFactory is Initializable, OwnableUpgradeable, PausableUp
             pool := create2(0, add(bytecode, 32), mload(bytecode), salt)
         }
         IPool(pool).initialize(
+            _name,
+            _symbol,
             IERC20(_rewardToken),
             _rewardPerBlock,
             _startBlock,
@@ -104,6 +110,6 @@ contract NodeStakingPoolFactory is Initializable, OwnableUpgradeable, PausableUp
         );
         getPools[msg.sender][_rewardToken].push(pool);
         allPools.push(pool);
-        emit NodeStakingPoolCreated(msg.sender, _rewardToken, _stakeToken, pool, allPools.length - 1);
+        emit NodeStakingPoolCreated(msg.sender, _name, _symbol, _rewardToken, _stakeToken, pool, allPools.length - 1);
     }
 }

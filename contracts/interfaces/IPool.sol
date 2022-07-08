@@ -5,6 +5,8 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface IPool {
     function initialize(
+        string memory _name,
+        string memory _symbol,
         IERC20 _rewardToken,
         uint256 _rewardPerBlock,
         uint256 _startBlock,
