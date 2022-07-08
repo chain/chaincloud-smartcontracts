@@ -94,7 +94,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         IERC20 _stakeToken,
         uint256 _lockupDuration,
         uint256 _withdrawPeriod
-    ) public initializer {
+    ) external initializer {
         __Ownable_init();
         transferOwnership(tx.origin);
         require(address(_rewardToken) != address(0), "NodeStakingPool: invalid reward token address");
@@ -150,6 +150,40 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
     function setRewardDistributor(address _rewardDistributor) external onlyOwner {
         require(_rewardDistributor != address(0), "NodeStakingPool: invalid reward distributor");
         rewardDistributor = _rewardDistributor;
+    }
+
+    function setPoolInfor(
+        string memory _name,
+        string memory _symbol,
+        IERC20 _rewardToken,
+        uint256 _rewardPerBlock,
+        uint256 _startBlock,
+        uint256 _endBlock,
+        IERC20 _stakeToken,
+        uint256 _lockupDuration,
+        uint256 _withdrawPeriod
+    ) external onlyOwner {
+        require(address(_rewardToken) != address(0), "NodeStakingPool: invalid reward token address");
+        require(_startBlock < _endBlock, "NodeStakingPool: invalid start block or end block");
+        require(_lockupDuration > 0, "NodeStakingPool: lockupDuration must be gt 0");
+        require(_withdrawPeriod > 0, "NodeStakingPool: withdrawPeriod must be gt 0");
+
+        name = _name;
+        symbol = _symbol;
+        rewardToken = _rewardToken;
+        rewardPerBlock = _rewardPerBlock;
+        startBlockNumber = _startBlock;
+        endBlockNumber = _endBlock;
+        lockupDuration = _lockupDuration;
+        withdrawPeriod = _withdrawPeriod;
+
+        lastRewardBlock = block.number > startBlockNumber ? block.number : startBlockNumber;
+        stakeToken = _stakeToken;
+        stakeTokenSupply = 0;
+        totalRunningNode = 0;
+        requireStakeAmount = 0;
+        accRewardPerShare = 0;
+        updatePool();
     }
 
     /**
