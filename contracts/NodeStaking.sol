@@ -77,6 +77,10 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
     event NodeStakingWithdraw(address user, uint256 amount);
     event NodeStakingRewardsHarvested(address user, uint256 amount);
     event SetRequireStakeAmount(uint256 amount);
+    event SetEndBlock(uint256 block);
+    event SetRewardDistributor(address rewardDistributor);
+    event SetRewardPerBlock(uint256 rewardPerBlock);
+    event SetPoolInfor(uint256 rewardPerBlock, uint256 endBlock, uint256 lockupDuration, uint256 withdrawPeriod);
 
     /**
      * @notice Initialize the contract, get called in the first time deploy
@@ -150,40 +154,34 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
     function setRewardDistributor(address _rewardDistributor) external onlyOwner {
         require(_rewardDistributor != address(0), "NodeStakingPool: invalid reward distributor");
         rewardDistributor = _rewardDistributor;
+        emit SetRewardDistributor(_rewardDistributor);
     }
 
     function setPoolInfor(
-        string memory _name,
-        string memory _symbol,
-        IERC20 _rewardToken,
         uint256 _rewardPerBlock,
-        uint256 _startBlock,
         uint256 _endBlock,
-        IERC20 _stakeToken,
         uint256 _lockupDuration,
         uint256 _withdrawPeriod
     ) external onlyOwner {
-        require(address(_rewardToken) != address(0), "NodeStakingPool: invalid reward token address");
-        require(_startBlock < _endBlock, "NodeStakingPool: invalid start block or end block");
+        require(_endBlock > block.number, "NodeStakingPool: end block must be gt block.number");
         require(_lockupDuration > 0, "NodeStakingPool: lockupDuration must be gt 0");
         require(_withdrawPeriod > 0, "NodeStakingPool: withdrawPeriod must be gt 0");
 
-        name = _name;
-        symbol = _symbol;
-        rewardToken = _rewardToken;
+        updatePool();
+
         rewardPerBlock = _rewardPerBlock;
-        startBlockNumber = _startBlock;
         endBlockNumber = _endBlock;
         lockupDuration = _lockupDuration;
         withdrawPeriod = _withdrawPeriod;
 
-        lastRewardBlock = block.number > startBlockNumber ? block.number : startBlockNumber;
-        stakeToken = _stakeToken;
-        stakeTokenSupply = 0;
-        totalRunningNode = 0;
-        requireStakeAmount = 0;
-        accRewardPerShare = 0;
+        emit SetPoolInfor(_rewardPerBlock, _endBlock, _lockupDuration, _withdrawPeriod);
+    }
+
+    function setRewardPerBlock(uint256 _rewardPerBlock) external {
         updatePool();
+        rewardPerBlock = _rewardPerBlock;
+
+        emit SetRewardPerBlock(_rewardPerBlock);
     }
 
     /**
@@ -192,6 +190,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
     function setEndBlock(uint256 _endBlockNumber) external onlyOwner {
         require(_endBlockNumber > block.number, "NodeStakingPool: invalid reward distributor");
         endBlockNumber = _endBlockNumber;
+        emit SetEndBlock(_endBlockNumber);
     }
 
     /**
@@ -206,11 +205,6 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         return _to - _from;
     }
 
-    // TODO: nếu ở trong withdraw period thì đây là khoảng thời gian từ lúc bắt đầu withdrawPeriod đến _to
-    function lockRewardTime(uint256 _from, uint256 _to) public view returns (uint256) {
-        return 0;
-    }
-
     function getNextRewardBlock() public view returns (uint256) {
         uint256 currBlockNumber = block.number;
         if (currBlockNumber > endBlockNumber) {
@@ -222,15 +216,6 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         // tmp is the times that done lockupDuration
         uint256 tmp = duration / (lockupDuration + withdrawPeriod);
         return startBlockNumber + tmp * lockupDuration + withdrawPeriod;
-    }
-
-    /**
-     * @notice Update number of reward per block
-     * @param _rewardPerBlock the number of reward tokens that got unlocked each block
-     */
-    function setRewardPerBlock(uint256 _rewardPerBlock) external onlyOwner {
-        updatePool();
-        rewardPerBlock = _rewardPerBlock;
     }
 
     /**
