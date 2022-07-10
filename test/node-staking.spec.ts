@@ -26,7 +26,7 @@ describe("Node Staking", () => {
 
   beforeEach(async () => {
     loadFixture = waffle.createFixtureLoader(wallets as any);
-    ({ STRK, XCN, nodeStaking, nodeStakingFactory } = await loadFixture(fixture));
+    ({ STRK, XCN, nodeStaking } = await loadFixture(fixture));
     await STRK.approve(nodeStaking.address, ethers.constants.MaxUint256);
     await XCN.approve(nodeStaking.address, ethers.constants.MaxUint256);
   });
@@ -57,6 +57,7 @@ describe("Node Staking", () => {
 
     // user1 withdraw
     await nodeStaking.connect(account1).withdraw(0, true);
+    await nodeStaking.connect(account1).withdraw(1, true);
     // check balance of user 1
     const user1Balance03 = await STRK.balanceOf(account1.address);
     console.log("\x1b[36m%s\x1b[0m", "user1Balance03", user1Balance03.toString(), user1Balance03.toString().length);

@@ -442,7 +442,9 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         console.log("\x1b[36m%s\x1b[0m", "nextLockingTime", nextLockingTime);
         console.log("\x1b[36m%s\x1b[0m", "block.number", block.number);
         uint256 duration = withdrawPeriod - (nextLockingTime - block.number);
-
+        console.log("\x1b[36m%s\x1b[0m", "duration", duration);
+        console.log("\x1b[36m%s\x1b[0m", "_totalStakeTime", _totalStakeTime);
+        console.log("\x1b[36m%s\x1b[0m", "_totalReward", _totalReward);
         uint256 reward = (duration * _totalReward) / _totalStakeTime;
 
         return reward;
