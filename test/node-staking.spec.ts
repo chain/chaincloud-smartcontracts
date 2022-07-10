@@ -21,7 +21,7 @@ describe("Node Staking", () => {
     wallets = await (ethers as any).getSigners();
     deployer = wallets[0];
     account1 = wallets[1];
-    account2 = wallets[2];
+    account2 = wallets[3];
   });
 
   beforeEach(async () => {
@@ -36,18 +36,27 @@ describe("Node Staking", () => {
 
     // check balance of user 1
     const user1Balance01 = await STRK.balanceOf(account1.address);
+    const user1Balance01XCN = await XCN.balanceOf(account1.address);
     console.log("\x1b[36m%s\x1b[0m", "user1Balance01", user1Balance01.toString(), user1Balance01.toString().length);
-
+    console.log(
+      "\x1b[36m%s\x1b[0m",
+      "user1Balance01XCN",
+      user1Balance01XCN.toString(),
+      user1Balance01XCN.toString().length,
+    );
     // approve STRK
     await STRK.connect(account1).approve(nodeStaking.address, ethers.utils.parseUnits("100", 35));
+    await STRK.connect(account2).approve(nodeStaking.address, ethers.utils.parseUnits("100", 35));
     // user1 stake count 1 => take 100
     await nodeStaking.connect(account1).deposit();
+    await nodeStaking.connect(account2).deposit();
     // user1 stake again with count = 2 => take 200
     await nodeStaking.connect(account1).deposit();
 
     // enable address for user 1
     await nodeStaking.enableAddress(account1.address, 0);
     await nodeStaking.enableAddress(account1.address, 1);
+    await nodeStaking.enableAddress(account2.address, 0);
     // increase to 100 block
     await time.advanceBlockTo(115);
 
@@ -57,9 +66,28 @@ describe("Node Staking", () => {
 
     // user1 withdraw
     await nodeStaking.connect(account1).withdraw(0, true);
+    const user1Balance02XCN = await XCN.balanceOf(account1.address);
+    console.log(
+      "\x1b[36m%s\x1b[0m",
+      "user1Balance02XCN",
+      user1Balance02XCN.toString(),
+      user1Balance02XCN.toString().length,
+    );
+    console.log("\x1b[36m%s\x1b[0m", "=============================================");
     await nodeStaking.connect(account1).withdraw(1, true);
+    await nodeStaking.connect(account2).withdraw(0, true);
+
     // check balance of user 1
     const user1Balance03 = await STRK.balanceOf(account1.address);
     console.log("\x1b[36m%s\x1b[0m", "user1Balance03", user1Balance03.toString(), user1Balance03.toString().length);
+
+    // check XCN balance
+    const user1Balance03XCN = await XCN.balanceOf(account1.address);
+    console.log(
+      "\x1b[36m%s\x1b[0m",
+      "user1Balance03XCN",
+      user1Balance03XCN.toString(),
+      user1Balance03XCN.toString().length,
+    );
   });
 });

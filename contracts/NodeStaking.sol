@@ -321,10 +321,9 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
      * @notice Harvest proceeds msg.sender
      */
     function claimReward(uint256 _nodeId) public returns (uint256) {
-        uint256 multiplier = timeMultiplier(lastRewardBlock, block.number);
-
         updatePool();
         NodeStakingUserInfo storage user = userInfo[msg.sender][_nodeId];
+        uint256 multiplier = timeMultiplier(user.stakeTime, block.number);
         uint256 totalPending = pendingReward(msg.sender, _nodeId);
 
         user.pendingReward = 0;
@@ -426,8 +425,6 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         uint256 _totalStakeTime,
         uint256 _totalReward
     ) private returns (uint256) {
-        require(_totalStakeTime > 0, "NodeStakingPool: stake time must be greater than 0");
-
         NodeStakingUserInfo storage user = userInfo[msg.sender][_nodeId];
         require(user.stakeTime > 0, "NodeStakingPool: NodeStakingPool: node already disabled");
 
@@ -442,6 +439,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         console.log("\x1b[36m%s\x1b[0m", "nextLockingTime", nextLockingTime);
         console.log("\x1b[36m%s\x1b[0m", "block.number", block.number);
         uint256 duration = withdrawPeriod - (nextLockingTime - block.number);
+        require(_totalStakeTime > duration, "NodeStakingPool: haven't reward to claim");
         console.log("\x1b[36m%s\x1b[0m", "duration", duration);
         console.log("\x1b[36m%s\x1b[0m", "_totalStakeTime", _totalStakeTime);
         console.log("\x1b[36m%s\x1b[0m", "_totalReward", _totalReward);
