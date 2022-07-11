@@ -99,9 +99,9 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         uint256 _startBlock,
         uint256 _endBlock,
         IERC20 _stakeToken,
-        address _rewardDistributor,
         uint256 _lockupDuration,
-        uint256 _withdrawPeriod
+        uint256 _withdrawPeriod,
+        address _rewardDistributor
     ) external initializer {
         __Ownable_init();
         transferOwnership(tx.origin);
@@ -263,9 +263,6 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         emit NodeStakingDeposit(msg.sender, _amount, index, nodeId);
     }
 
-    // TODO: set pool
-    function setPool() external {}
-
     function enableAddress(address _user, uint256 _nodeId) external onlyOwner {
         NodeStakingUserInfo storage user = userInfo[_user][_nodeId];
 
@@ -405,7 +402,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
      * @param _to address of the receiver
      * @param _amount amount of the reward token
      */
-    function safeRewardTransfer(address _to, uint256 _amount) internal {
+    function safeRewardTransfer(address _to, uint256 _amount) private {
         uint256 bal = rewardToken.balanceOf(rewardDistributor);
 
         require(_amount <= bal, "NodeStakingPool: not enough reward token");
@@ -413,7 +410,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         rewardToken.safeTransferFrom(rewardDistributor, _to, _amount);
     }
 
-    // TODO: lượng reward trong withdraw period
+    // lượng reward trong withdraw period
     function _getWithdrawPendingReward(
         uint256 _nodeId,
         uint256 _totalStakeTime,
