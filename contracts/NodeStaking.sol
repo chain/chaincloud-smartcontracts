@@ -68,7 +68,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
     // pending reward in withdraw period
     mapping(address => mapping(uint256 => LockWithdrawReward)) public pendingRewardInWithdrawPeriod;
 
-    event NodeStakingDeposit(address user, uint256 amount, uint256 userNodeId);
+    event NodeStakingDeposit(address user, uint256 amount, uint256 userNodeId, uint256 backendNodeId);
     event NodeStakingEnableAddress(address user, uint256 userNodeId);
     event NodeStakingDisableAddress(address user, uint256 userNodeId);
     event NodeStakingWithdraw(address user, uint256 amount);
@@ -250,7 +250,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
     /**
      * @notice Deposit LP tokens to the farm for reward allocation.
      */
-    function deposit() external {
+    function deposit(uint256 nodeId) external {
         uint256 _amount = requireStakeAmount;
 
         uint256 index = userNodeCount[msg.sender]++;
@@ -260,7 +260,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         user.amount = _amount;
         stakeTokenSupply = stakeTokenSupply + _amount;
         stakeToken.safeTransferFrom(address(msg.sender), address(this), _amount);
-        emit NodeStakingDeposit(msg.sender, _amount, index);
+        emit NodeStakingDeposit(msg.sender, _amount, index, nodeId);
     }
 
     // TODO: set pool
