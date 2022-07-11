@@ -8,7 +8,6 @@ import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
-import "hardhat/console.sol";
 
 contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeable {
     using SafeERC20 for IERC20;
@@ -394,14 +393,9 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
 
     function getNextStartLockingTime(uint256 _startTime) public view returns (uint256) {
         if (_startTime == 0) return block.number;
-        console.log("\x1b[36m%s\x1b[0m", "block.number", block.number);
-        console.log("\x1b[36m%s\x1b[0m", "_startTime", _startTime);
         uint256 duration = block.number - _startTime;
         // multiplier is the times that done lockupDuration
-        console.log("\x1b[36m%s\x1b[0m", "lockupDuration", lockupDuration);
-        console.log("\x1b[36m%s\x1b[0m", "withdrawPeriod", withdrawPeriod);
         uint256 multiplier = duration / (lockupDuration + withdrawPeriod);
-        console.log("\x1b[36m%s\x1b[0m", "multiplier", multiplier);
 
         return _startTime + (multiplier + 1) * (lockupDuration + withdrawPeriod);
     }
@@ -435,14 +429,8 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
 
         // get time in withdraw period
         uint256 nextLockingTime = getNextStartLockingTime(user.stakeTime);
-        console.log("\x1b[36m%s\x1b[0m", "withdrawPeriod", withdrawPeriod);
-        console.log("\x1b[36m%s\x1b[0m", "nextLockingTime", nextLockingTime);
-        console.log("\x1b[36m%s\x1b[0m", "block.number", block.number);
         uint256 duration = withdrawPeriod - (nextLockingTime - block.number);
         require(_totalStakeTime > duration, "NodeStakingPool: haven't reward to claim");
-        console.log("\x1b[36m%s\x1b[0m", "duration", duration);
-        console.log("\x1b[36m%s\x1b[0m", "_totalStakeTime", _totalStakeTime);
-        console.log("\x1b[36m%s\x1b[0m", "_totalReward", _totalReward);
         uint256 reward = (duration * _totalReward) / _totalStakeTime;
 
         return reward;
