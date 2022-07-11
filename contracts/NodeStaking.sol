@@ -126,7 +126,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         totalRunningNode = 0;
         requireStakeAmount = 0;
         accRewardPerShare = 0;
-        updatePool();
+        _updatePool();
     }
 
     /**
@@ -173,7 +173,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         require(_lockupDuration > 0, "NodeStakingPool: lockupDuration must be gt 0");
         require(_withdrawPeriod > 0, "NodeStakingPool: withdrawPeriod must be gt 0");
 
-        updatePool();
+        _updatePool();
 
         rewardPerBlock = _rewardPerBlock;
         endBlockNumber = _endBlock;
@@ -185,7 +185,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
     }
 
     function setRewardPerBlock(uint256 _rewardPerBlock) external {
-        updatePool();
+        _updatePool();
         rewardPerBlock = _rewardPerBlock;
 
         emit SetRewardPerBlock(_rewardPerBlock);
@@ -232,7 +232,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
     /**
      * @notice Update reward variables of the given pool to be up-to-date.
      */
-    function updatePool() public {
+    function _updatePool() private {
         if (block.number <= lastRewardBlock) {
             return;
         }
@@ -267,7 +267,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         NodeStakingUserInfo storage user = userInfo[_user][_nodeId];
 
         require(user.stakeTime == 0, "NodeStakingPool: node already enabled");
-        updatePool();
+        _updatePool();
 
         user.stakeTime = block.number;
         userRunningNode[_user] = userRunningNode[_user] + 1;
@@ -281,7 +281,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
 
         require(user.stakeTime > 0, "NodeStakingPool: node already disabled");
         // require(isInWithdrawTime(user.stakeTime), "NodeStakingPool: not in withdraw time");
-        updatePool();
+        _updatePool();
         if (user.stakeTime > 0) {
             uint256 pending = ((accRewardPerShare) / ACCUMULATED_MULTIPLIER) - user.rewardDebt;
 
@@ -302,7 +302,9 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
      */
     function withdraw(uint256 _nodeId, bool _harvestReward) external {
         NodeStakingUserInfo storage user = userInfo[msg.sender][_nodeId];
-        require(isInWithdrawTime(user.stakeTime), "NodeStakingPool: not in withdraw time");
+        if (user.stakeTime > 0) {
+            require(isInWithdrawTime(user.stakeTime), "NodeStakingPool: not in withdraw time");
+        }
         require(user.amount > 0, "NodeStakingPool: have not any token to withdraw");
 
         uint256 amount = user.amount;
@@ -317,7 +319,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
      * @notice Harvest proceeds msg.sender
      */
     function claimReward(uint256 _nodeId) public returns (uint256) {
-        updatePool();
+        _updatePool();
         NodeStakingUserInfo storage user = userInfo[msg.sender][_nodeId];
         uint256 multiplier = timeMultiplier(user.stakeTime, block.number);
         uint256 totalPending = pendingReward(msg.sender, _nodeId);
@@ -364,7 +366,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         if (_harvestReward) {
             claimReward(_nodeId);
         } else {
-            updatePool();
+            _updatePool();
             // user have stake time = user deposited
             if (user.stakeTime > 0) {
                 uint256 pending = ((accRewardPerShare) / ACCUMULATED_MULTIPLIER) - user.rewardDebt;
@@ -417,7 +419,9 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         uint256 _totalReward
     ) private returns (uint256) {
         NodeStakingUserInfo storage user = userInfo[msg.sender][_nodeId];
-        require(user.stakeTime > 0, "NodeStakingPool: NodeStakingPool: node already disabled");
+        if (user.stakeTime == 0) return 0;
+
+        // require(user.stakeTime > 0, "NodeStakingPool: NodeStakingPool: node already disabled");
 
         bool isInWithdrawTime = isInWithdrawTime(user.stakeTime);
         if (!isInWithdrawTime) {

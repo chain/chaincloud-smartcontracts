@@ -29,6 +29,8 @@ describe("Node Staking", () => {
     ({ STRK, XCN, nodeStaking } = await loadFixture(fixture));
     await STRK.approve(nodeStaking.address, ethers.constants.MaxUint256);
     await XCN.approve(nodeStaking.address, ethers.constants.MaxUint256);
+    await STRK.connect(account1).approve(nodeStaking.address, ethers.utils.parseUnits("100", 35));
+    await STRK.connect(account2).approve(nodeStaking.address, ethers.utils.parseUnits("100", 35));
   });
 
   // it("test", async () => {
@@ -91,103 +93,149 @@ describe("Node Staking", () => {
   //   );
   // });
 
-  describe("basic function: getter, setter", async () => {
-    it("get pool infor", async () => {
-      expect(await nodeStaking.name()).to.eq("Solana");
-      expect(await nodeStaking.symbol()).to.eq("SOL");
-      expect(await nodeStaking.stakeToken()).to.eq(STRK.address);
-      expect(await nodeStaking.rewardToken()).to.eq(XCN.address);
-      expect(await nodeStaking.requireStakeAmount()).to.eq(ethers.utils.parseEther("100"));
-      expect(await nodeStaking.rewardPerBlock()).to.eq(ethers.utils.parseEther("1"));
-    });
+  // describe("basic function: getter, setter", async () => {
+  //   it("get pool infor", async () => {
+  //     expect(await nodeStaking.name()).to.eq("Solana");
+  //     expect(await nodeStaking.symbol()).to.eq("SOL");
+  //     expect(await nodeStaking.stakeToken()).to.eq(STRK.address);
+  //     expect(await nodeStaking.rewardToken()).to.eq(XCN.address);
+  //     expect(await nodeStaking.requireStakeAmount()).to.eq(ethers.utils.parseEther("100"));
+  //     expect(await nodeStaking.rewardPerBlock()).to.eq(ethers.utils.parseEther("1"));
+  //   });
 
-    it("setRequireStakeAmount", async () => {
-      const amount = ethers.utils.parseEther("50");
-      await expect(await nodeStaking.setRequireStakeAmount(amount))
-        .to.emit(nodeStaking, "SetRequireStakeAmount")
-        .withArgs(amount);
+  //   it("setRequireStakeAmount", async () => {
+  //     const amount = ethers.utils.parseEther("50");
+  //     await expect(await nodeStaking.setRequireStakeAmount(amount))
+  //       .to.emit(nodeStaking, "SetRequireStakeAmount")
+  //       .withArgs(amount);
 
-      expect(await nodeStaking.requireStakeAmount()).to.eq(amount);
-    });
+  //     expect(await nodeStaking.requireStakeAmount()).to.eq(amount);
+  //   });
 
-    it("setRewardDistributor", async () => {
-      await expect(await nodeStaking.setRewardDistributor(account1.address))
-        .to.emit(nodeStaking, "SetRewardDistributor")
-        .withArgs(account1.address);
+  //   it("setRewardDistributor", async () => {
+  //     await expect(await nodeStaking.setRewardDistributor(account1.address))
+  //       .to.emit(nodeStaking, "SetRewardDistributor")
+  //       .withArgs(account1.address);
 
-      expect(await nodeStaking.rewardDistributor()).to.eq(account1.address);
-    });
+  //     expect(await nodeStaking.rewardDistributor()).to.eq(account1.address);
+  //   });
 
-    it("setRewardPerBlock", async () => {
-      const amount = ethers.utils.parseEther("50");
-      await expect(await nodeStaking.setRewardPerBlock(amount))
-        .to.emit(nodeStaking, "SetRewardPerBlock")
-        .withArgs(amount);
+  //   it("setRewardPerBlock", async () => {
+  //     const amount = ethers.utils.parseEther("50");
+  //     await expect(await nodeStaking.setRewardPerBlock(amount))
+  //       .to.emit(nodeStaking, "SetRewardPerBlock")
+  //       .withArgs(amount);
 
-      expect(await nodeStaking.rewardPerBlock()).to.eq(amount);
-    });
+  //     expect(await nodeStaking.rewardPerBlock()).to.eq(amount);
+  //   });
 
-    it("setEndBlock", async () => {
-      const block = 100000000000;
-      await expect(await nodeStaking.setEndBlock(block))
-        .to.emit(nodeStaking, "SetEndBlock")
-        .withArgs(block);
+  //   it("setEndBlock", async () => {
+  //     const block = 100000000000;
+  //     await expect(await nodeStaking.setEndBlock(block))
+  //       .to.emit(nodeStaking, "SetEndBlock")
+  //       .withArgs(block);
 
-      expect(await nodeStaking.endBlockNumber()).to.eq(block);
-    });
+  //     expect(await nodeStaking.endBlockNumber()).to.eq(block);
+  //   });
 
-    it("setPoolInfor", async () => {
-      const rewardPerBlock = 100000000000;
-      const endBlock = 100000000000;
-      const lockupDuration = 100000000000;
-      const withdrawPeriod = 100000000000;
-      const rewardDistributor = account2.address;
-      await expect(
-        await nodeStaking.setPoolInfor(rewardPerBlock, endBlock, lockupDuration, withdrawPeriod, rewardDistributor),
-      )
-        .to.emit(nodeStaking, "SetPoolInfor")
-        .withArgs(rewardPerBlock, endBlock, lockupDuration, withdrawPeriod, rewardDistributor);
+  //   it("setPoolInfor", async () => {
+  //     const rewardPerBlock = 100000000000;
+  //     const endBlock = 100000000000;
+  //     const lockupDuration = 100000000000;
+  //     const withdrawPeriod = 100000000000;
+  //     const rewardDistributor = account2.address;
+  //     await expect(
+  //       await nodeStaking.setPoolInfor(rewardPerBlock, endBlock, lockupDuration, withdrawPeriod, rewardDistributor),
+  //     )
+  //       .to.emit(nodeStaking, "SetPoolInfor")
+  //       .withArgs(rewardPerBlock, endBlock, lockupDuration, withdrawPeriod, rewardDistributor);
 
-      expect(await nodeStaking.rewardPerBlock()).to.eq(rewardPerBlock);
-      expect(await nodeStaking.endBlockNumber()).to.eq(endBlock);
-      expect(await nodeStaking.lockupDuration()).to.eq(lockupDuration);
-      expect(await nodeStaking.withdrawPeriod()).to.eq(withdrawPeriod);
-      expect(await nodeStaking.rewardDistributor()).to.eq(rewardDistributor);
-    });
+  //     expect(await nodeStaking.rewardPerBlock()).to.eq(rewardPerBlock);
+  //     expect(await nodeStaking.endBlockNumber()).to.eq(endBlock);
+  //     expect(await nodeStaking.lockupDuration()).to.eq(lockupDuration);
+  //     expect(await nodeStaking.withdrawPeriod()).to.eq(withdrawPeriod);
+  //     expect(await nodeStaking.rewardDistributor()).to.eq(rewardDistributor);
+  //   });
 
-    it("timeMultiplier", async () => {
-      // get current block
-      let currentBlock = await time.latestBlock();
-      const oldCurrBlock = currentBlock;
-      await nodeStaking.setEndBlock(currentBlock.add(100));
+  //   it("timeMultiplier", async () => {
+  //     // get current block
+  //     let currentBlock = await time.latestBlock();
+  //     const oldCurrBlock = currentBlock;
+  //     await nodeStaking.setEndBlock(currentBlock.add(100));
 
-      let timeMultiplier = await nodeStaking.timeMultiplier(currentBlock, currentBlock.add(10));
-      expect(timeMultiplier).to.be.eq(ethers.BigNumber.from(10));
+  //     let timeMultiplier = await nodeStaking.timeMultiplier(currentBlock, currentBlock.add(10));
+  //     expect(timeMultiplier).to.be.eq(ethers.BigNumber.from(10));
 
-      // increase 200 block
-      await time.advanceBlockTo(currentBlock.add(200).toNumber());
-      currentBlock = await time.latestBlock();
-      timeMultiplier = await nodeStaking.timeMultiplier(currentBlock, currentBlock.add(10));
-      expect(timeMultiplier).to.be.eq(ethers.BigNumber.from(0));
+  //     // increase 200 block
+  //     await time.advanceBlockTo(currentBlock.add(200).toNumber());
+  //     currentBlock = await time.latestBlock();
+  //     timeMultiplier = await nodeStaking.timeMultiplier(currentBlock, currentBlock.add(10));
+  //     expect(timeMultiplier).to.be.eq(ethers.BigNumber.from(0));
 
-      timeMultiplier = await nodeStaking.timeMultiplier(oldCurrBlock.add(20), currentBlock.add(10));
-      expect(timeMultiplier).to.be.lt(ethers.BigNumber.from(100));
-    });
+  //     timeMultiplier = await nodeStaking.timeMultiplier(oldCurrBlock.add(20), currentBlock.add(10));
+  //     expect(timeMultiplier).to.be.lt(ethers.BigNumber.from(100));
+  //   });
 
-    it("isInWithdrawTime", async () => {
-      // lock time = 10, withdraw time = 10
-      await time.advanceBlockTo(500);
-      expect(await nodeStaking.isInWithdrawTime(485)).to.eq(true);
-      expect(await nodeStaking.isInWithdrawTime(495)).to.eq(false);
-      expect(await nodeStaking.isInWithdrawTime(490)).to.eq(true);
-      expect(await nodeStaking.isInWithdrawTime(480)).to.eq(false);
-    });
+  //   it("isInWithdrawTime", async () => {
+  //     // lock time = 10, withdraw time = 10
+  //     await time.advanceBlockTo(500);
+  //     expect(await nodeStaking.isInWithdrawTime(485)).to.eq(true);
+  //     expect(await nodeStaking.isInWithdrawTime(495)).to.eq(false);
+  //     expect(await nodeStaking.isInWithdrawTime(490)).to.eq(true);
+  //     expect(await nodeStaking.isInWithdrawTime(480)).to.eq(false);
+  //   });
 
-    it("getNextStartLockingTime", async () => {
-      // lock time = 10, withdraw time = 10
-      await time.advanceBlockTo(700);
-      expect(await nodeStaking.getNextStartLockingTime(700)).to.eq(720);
-      expect(await nodeStaking.getNextStartLockingTime(690)).to.eq(710);
+  //   it("getNextStartLockingTime", async () => {
+  //     // lock time = 10, withdraw time = 10
+  //     await time.advanceBlockTo(700);
+  //     expect(await nodeStaking.getNextStartLockingTime(700)).to.eq(720);
+  //     expect(await nodeStaking.getNextStartLockingTime(690)).to.eq(710);
+  //   });
+  // });
+
+  describe("Deposit, withdraw, not enable address => haven't reward", async () => {
+    it("should able to deposit and withdraw", async () => {
+      // acc1 deposit
+      const acc1XCNBalance1 = await XCN.balanceOf(account1.address);
+      const acc1STRKBalance1 = await STRK.balanceOf(account1.address);
+
+      await nodeStaking.connect(account1).deposit(1);
+
+      // check balance STRK account1
+      const acc1STRKBalance2 = await STRK.balanceOf(account1.address);
+      expect(acc1STRKBalance1.sub(acc1STRKBalance2)).to.eq(ethers.utils.parseEther("100"));
+
+      // increase 100 block
+      await time.advanceBlockBy(100);
+
+      // acc2 deposit
+      const acc2XCNBalance1 = await XCN.balanceOf(account2.address);
+      const acc2STRKBalance1 = await STRK.balanceOf(account2.address);
+
+      await nodeStaking.connect(account2).deposit(1);
+
+      // check balance STRK account2
+      const acc2STRKBalance2 = await STRK.balanceOf(account1.address);
+      expect(acc2STRKBalance1.sub(acc2STRKBalance2)).to.eq(ethers.utils.parseEther("100"));
+
+      // increase 100 block
+      await time.advanceBlockBy(100);
+
+      // withdraw and check state
+      await nodeStaking.connect(account1).withdraw(0, true);
+      await nodeStaking.connect(account2).withdraw(0, true);
+
+      const acc2XCNBalance2 = await XCN.balanceOf(account2.address);
+      const acc2STRKBalance3 = await STRK.balanceOf(account2.address);
+      expect(acc2XCNBalance2.sub(acc2XCNBalance1)).to.eq(ethers.utils.parseEther("0"));
+      expect(acc2STRKBalance3.sub(acc2STRKBalance2)).to.eq(ethers.utils.parseEther("100"));
+
+      const acc1XCNBalance2 = await XCN.balanceOf(account1.address);
+      const acc1STRKBalance3 = await STRK.balanceOf(account1.address);
+      expect(acc1XCNBalance2.sub(acc1XCNBalance1)).to.eq(ethers.utils.parseEther("0"));
+      expect(acc1STRKBalance3.sub(acc1STRKBalance2)).to.eq(ethers.utils.parseEther("100"));
     });
   });
+  describe("Deposit => enable => withdraw", async () => {});
+  describe("Deposit => enable => disable => withdraw", async () => {});
 });

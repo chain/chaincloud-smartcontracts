@@ -3,6 +3,12 @@ import { BigNumber } from "ethers";
 async function advanceBlock(): Promise<string> {
   return ethers.provider.send("evm_mine", []);
 }
+
+async function advanceBlockBy(count: number): Promise<void> {
+  for (let i = 0; i < count; i++) {
+    await ethers.provider.send("evm_mine", []);
+  }
+}
 async function advanceBlockTo(blockNumber: number): Promise<void> {
   for (let i = await ethers.provider.getBlockNumber(); i < blockNumber; i++) {
     await advanceBlock();
@@ -50,4 +56,4 @@ const duration = {
     return BigNumber.from(val).mul(this.days("365"));
   },
 };
-export { advanceBlock, advanceBlockTo, increase, increaseTo, latest, duration, latestBlock };
+export { advanceBlock, advanceBlockTo, advanceBlockBy, increase, increaseTo, latest, duration, latestBlock };
