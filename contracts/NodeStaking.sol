@@ -266,6 +266,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
     function enableAddress(address _user, uint256 _nodeId) external onlyOwner {
         NodeStakingUserInfo storage user = userInfo[_user][_nodeId];
 
+        require(user.amount != 0, "NodeStakingPool: invalid node id");
         require(user.stakeTime == 0, "NodeStakingPool: node already enabled");
         _updatePool();
 
