@@ -83,12 +83,18 @@ contract Payment is Initializable, OwnableUpgradeable, PausableUpgradeable {
         uint256 _paymentId
     ) external payable {
         if (_token == address(0)) {
-            require(msg.value == payAmount[_type][address(0)], "Payment: not valid pay amount");
+            require(
+                msg.value ==
+                    payAmount[_type][address(0)] -
+                        (payAmount[_type][address(0)] * discount[_type][address(0)]) /
+                        HUNDRED_PERCENT,
+                "Payment: not valid pay amount"
+            );
         } else {
             IERC20(_token).transferFrom(
                 msg.sender,
                 treasury,
-                (payAmount[_type][_token] * discount[_type][_token]) / HUNDRED_PERCENT
+                payAmount[_type][_token] - (payAmount[_type][_token] * discount[_type][_token]) / HUNDRED_PERCENT
             );
         }
 
