@@ -8,6 +8,7 @@ import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import "hardhat/console.sol";
 
 contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeable {
     using SafeERC20 for IERC20;
@@ -271,6 +272,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         _updatePool();
 
         user.stakeTime = block.number;
+        user.rewardDebt = accRewardPerShare / ACCUMULATED_MULTIPLIER;
         userRunningNode[_user] = userRunningNode[_user] + 1;
         totalRunningNode = totalRunningNode + 1;
 
@@ -324,11 +326,12 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         NodeStakingUserInfo storage user = userInfo[msg.sender][_nodeId];
         uint256 multiplier = timeMultiplier(user.stakeTime, block.number);
         uint256 totalPending = pendingReward(msg.sender, _nodeId);
-
+        console.log("\x1b[36m%s\x1b[0m", "totalPending", totalPending);
         user.pendingReward = 0;
         user.rewardDebt = (accRewardPerShare) / (ACCUMULATED_MULTIPLIER);
 
         uint256 lockReward = _getWithdrawPendingReward(_nodeId, multiplier, totalPending);
+        console.log("\x1b[36m%s\x1b[0m", "lockReward", lockReward);
         if (totalPending > 0) {
             safeRewardTransfer(msg.sender, totalPending - lockReward);
         }
