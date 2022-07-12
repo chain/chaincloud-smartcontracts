@@ -280,5 +280,65 @@ describe("Node Staking", () => {
       expect(acc1STRKBalance3.sub(acc1STRKBalance2)).to.eq(ethers.utils.parseEther("100"));
     });
   });
-  describe("Deposit => enable => disable => withdraw", async () => {});
+  describe("Deposit => enable => disable => withdraw", async () => {
+    it("Deposit => enable => withdraw", async () => {
+      // acc1 deposit
+      const acc1XCNBalance1 = await XCN.balanceOf(account1.address);
+      const acc1STRKBalance1 = await STRK.balanceOf(account1.address);
+
+      await nodeStaking.connect(account1).deposit(1);
+      // enable address for node 0 acc 1
+      await nodeStaking.enableAddress(account1.address, 0);
+
+      // check balance STRK account1
+      const acc1STRKBalance2 = await STRK.balanceOf(account1.address);
+      expect(acc1STRKBalance1.sub(acc1STRKBalance2)).to.eq(ethers.utils.parseEther("100"));
+
+      // increase 100 block
+      await time.advanceBlockBy(100);
+
+      // acc2 deposit
+      const acc2XCNBalance1 = await XCN.balanceOf(account2.address);
+      const acc2STRKBalance1 = await STRK.balanceOf(account2.address);
+
+      await nodeStaking.connect(account2).deposit(1);
+      // enable address for node 0 acc 2
+      await nodeStaking.enableAddress(account2.address, 0);
+
+      // check balance STRK account2
+      const acc2STRKBalance2 = await STRK.balanceOf(account1.address);
+      expect(acc2STRKBalance1.sub(acc2STRKBalance2)).to.eq(ethers.utils.parseEther("100"));
+
+      // increase 110 block
+      await time.advanceBlockBy(110);
+
+      // disable address account 1 node 0 and account 2 node 0
+      await nodeStaking.disableAddress(account1.address, 0);
+      await nodeStaking.disableAddress(account2.address, 0);
+
+      // increase 110 block
+      await time.advanceBlockBy(110);
+
+      // withdraw and check state: acc2 + 55, acc1 + 100 + 55
+      await nodeStaking.connect(account1).withdraw(0, true);
+      console.log("\x1b[36m%s\x1b[0m", "=========================");
+      const tx = await nodeStaking.connect(account2).withdraw(0, true);
+      console.log("\x1b[36m%s\x1b[0m", "tx", tx.blockNumber);
+      const eventFilter = nodeStaking.filters.NodeStakingRewardsHarvested();
+      const events = await nodeStaking.queryFilter(eventFilter, tx.blockNumber, tx.blockNumber);
+      console.log("\x1b[36m%s\x1b[0m", "events", events[0].args);
+
+      const acc2XCNBalance2 = await XCN.balanceOf(account2.address);
+      const acc2STRKBalance3 = await STRK.balanceOf(account2.address);
+      expect(acc2XCNBalance2.sub(acc2XCNBalance1)).to.gte(ethers.utils.parseEther("55"));
+      expect(acc2XCNBalance2.sub(acc2XCNBalance1)).to.lte(ethers.utils.parseEther("57"));
+      expect(acc2STRKBalance3.sub(acc2STRKBalance2)).to.eq(ethers.utils.parseEther("100"));
+
+      const acc1XCNBalance2 = await XCN.balanceOf(account1.address);
+      const acc1STRKBalance3 = await STRK.balanceOf(account1.address);
+      expect(acc1XCNBalance2.sub(acc1XCNBalance1)).to.gte(ethers.utils.parseEther("155"));
+      expect(acc1XCNBalance2.sub(acc1XCNBalance1)).to.lte(ethers.utils.parseEther("159"));
+      expect(acc1STRKBalance3.sub(acc1STRKBalance2)).to.eq(ethers.utils.parseEther("100"));
+    });
+  });
 });
