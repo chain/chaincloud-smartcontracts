@@ -3,10 +3,10 @@
 pragma solidity 0.8.11;
 
 contract MockOracle {
-    uint256 public price;
+    int256 public price;
     uint8 public decimals;
 
-    function setPrice(uint256 _newPrice) external {
+    function setPrice(int256 _newPrice) external {
         price = _newPrice;
     }
 

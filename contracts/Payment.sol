@@ -41,16 +41,19 @@ contract Payment is Initializable, OwnableUpgradeable, PausableUpgradeable {
     event SetDiscount(PaymentType paymentType, address token, uint256 discount);
     event ChangeTreasury(address treasury);
     event SetOracle(address usdtEthPriceFeed, address usdtXcnPriceFeed);
+    event SetTokenAddress(address USDT, address XCN);
 
     function initialize(
         address _treasury,
         address _XCN,
+        address _USDT,
         address _usdtEthPriceFeed,
         address _usdtXcnPriceFeed
     ) external initializer {
         __Ownable_init();
         treasury = _treasury;
         XCNToken = _XCN;
+        USDTToken = _USDT;
         usdtEthPriceFeed = _usdtEthPriceFeed;
         usdtXcnPriceFeed = _usdtXcnPriceFeed;
     }
@@ -74,6 +77,13 @@ contract Payment is Initializable, OwnableUpgradeable, PausableUpgradeable {
         usdtXcnPriceFeed = _usdtXcnPriceFeed;
 
         emit SetOracle(_usdtEthPriceFeed, _usdtXcnPriceFeed);
+    }
+
+    function setTokenAddress(address _USDT, address _XCN) external onlyOwner {
+        USDTToken = _USDT;
+        XCNToken = _XCN;
+
+        emit SetTokenAddress(_USDT, _XCN);
     }
 
     function setPaymentAmount(PaymentType _type, uint256 _amount) external onlyOwner {
@@ -135,7 +145,7 @@ contract Payment is Initializable, OwnableUpgradeable, PausableUpgradeable {
         (uint256 price, uint8 decimals) = getLatestPrice(_token);
         uint8 usdtDecimals = IERC20Decimals(USDTToken).decimals();
         uint8 tokenDecimals = IERC20Decimals(_token).decimals();
-        return (_usdtAmount * price * tokenDecimals) / (decimals * usdtDecimals);
+        return (_usdtAmount * price * 10**tokenDecimals) / (10**decimals * 10**usdtDecimals);
     }
 
     function getLatestPrice(address _token)
