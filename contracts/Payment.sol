@@ -103,10 +103,11 @@ contract Payment is Initializable, OwnableUpgradeable, PausableUpgradeable {
         address _token,
         uint256 _paymentId
     ) external payable {
+        uint256 usdtAmount = paymentAmountInUSDT[_type] -
+            (paymentAmountInUSDT[_type] * discount[_type][_token]) /
+            HUNDRED_PERCENT;
+
         if (_token == address(0)) {
-            uint256 usdtAmount = paymentAmountInUSDT[_type] -
-                (paymentAmountInUSDT[_type] * discount[_type][address(0)]) /
-                HUNDRED_PERCENT;
             uint256 requireETHAmount = getTokenAmountFromUSDT(address(0), usdtAmount);
 
             require(msg.value >= requireETHAmount, "Payment: not valid pay amount");
@@ -118,9 +119,6 @@ contract Payment is Initializable, OwnableUpgradeable, PausableUpgradeable {
             }
             emit Payment(msg.sender, _token, requireETHAmount, discount[_type][address(0)], _type, _paymentId);
         } else {
-            uint256 usdtAmount = paymentAmountInUSDT[_type] -
-                (paymentAmountInUSDT[_type] * discount[_type][_token]) /
-                HUNDRED_PERCENT;
             uint256 requireTokenAmount = getTokenAmountFromUSDT(address(0), usdtAmount);
 
             IERC20(_token).transferFrom(msg.sender, treasury, requireTokenAmount);
