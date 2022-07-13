@@ -8,6 +8,10 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 
+interface IERC20Decimals {
+    function decimals() external view returns (uint8);
+}
+
 contract Payment is Initializable, OwnableUpgradeable, PausableUpgradeable {
     enum PaymentType {
         PROVIDER_NODE_FEE_MONTHLY,
@@ -17,6 +21,7 @@ contract Payment is Initializable, OwnableUpgradeable, PausableUpgradeable {
 
     address public treasury;
     address public XCNToken;
+    address public USDTToken;
     address public usdtEthPriceFeed;
     address public usdtXcnPriceFeed;
     // type + token => amount
@@ -46,8 +51,8 @@ contract Payment is Initializable, OwnableUpgradeable, PausableUpgradeable {
         __Ownable_init();
         treasury = _treasury;
         XCNToken = _XCN;
-        usdtEthPriceFeed = 0x8A753747A1Fa494EC906cE90E9f37563A8AF630e;
-        usdtXcnPriceFeed = 0x8A753747A1Fa494EC906cE90E9f37563A8AF630e;
+        usdtEthPriceFeed = _usdtEthPriceFeed;
+        usdtXcnPriceFeed = _usdtXcnPriceFeed;
     }
 
     /**
@@ -99,10 +104,10 @@ contract Payment is Initializable, OwnableUpgradeable, PausableUpgradeable {
         uint256 _paymentId
     ) external payable {
         if (_token == address(0)) {
-            uint256 usdAmount = paymentAmountInUSDT[_type] -
+            uint256 usdtAmount = paymentAmountInUSDT[_type] -
                 (paymentAmountInUSDT[_type] * discount[_type][address(0)]) /
                 HUNDRED_PERCENT;
-            uint256 requireETHAmount = getTokenAmountFromUSD(address(0), usdAmount);
+            uint256 requireETHAmount = getTokenAmountFromUSDT(address(0), usdtAmount);
 
             require(msg.value >= requireETHAmount, "Payment: not valid pay amount");
 
@@ -113,10 +118,10 @@ contract Payment is Initializable, OwnableUpgradeable, PausableUpgradeable {
             }
             emit Payment(msg.sender, _token, requireETHAmount, discount[_type][address(0)], _type, _paymentId);
         } else {
-            uint256 usdAmount = paymentAmountInUSDT[_type] -
+            uint256 usdtAmount = paymentAmountInUSDT[_type] -
                 (paymentAmountInUSDT[_type] * discount[_type][_token]) /
                 HUNDRED_PERCENT;
-            uint256 requireTokenAmount = getTokenAmountFromUSD(address(0), usdAmount);
+            uint256 requireTokenAmount = getTokenAmountFromUSDT(address(0), usdtAmount);
 
             IERC20(_token).transferFrom(msg.sender, treasury, requireTokenAmount);
             emit Payment(msg.sender, _token, requireTokenAmount, discount[_type][_token], _type, _paymentId);
@@ -128,9 +133,11 @@ contract Payment is Initializable, OwnableUpgradeable, PausableUpgradeable {
         emit ChangeTreasury(_treasury);
     }
 
-    function getTokenAmountFromUSD(address _token, uint256 _usdAmount) public view returns (uint256) {
+    function getTokenAmountFromUSDT(address _token, uint256 _usdtAmount) public view returns (uint256) {
         (uint256 price, uint8 decimals) = getLatestPrice(_token);
-        return (_usdAmount * price) / decimals;
+        uint8 usdtDecimals = IERC20Decimals(USDTToken).decimals();
+        uint8 tokenDecimals = IERC20Decimals(_token).decimals();
+        return (_usdtAmount * price * tokenDecimals) / (decimals * usdtDecimals);
     }
 
     function getLatestPrice(address _token)
@@ -147,6 +154,8 @@ contract Payment is Initializable, OwnableUpgradeable, PausableUpgradeable {
             priceFeed = usdtEthPriceFeed;
         } else if (_token == XCNToken) {
             priceFeed = usdtXcnPriceFeed;
+        } else if (_token == USDTToken) {
+            return (1, 1);
         } else {
             revert("Payment: invalid token");
         }
