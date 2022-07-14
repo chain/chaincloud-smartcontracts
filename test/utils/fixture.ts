@@ -7,6 +7,7 @@ import * as XCNTokenJSON from "../../artifacts/contracts/XCNToken.sol/XCN.json";
 import * as NodeStakingFactoryJSON from "../../artifacts/contracts/NodeStakingFactory.sol/NodeStakingPoolFactory.json";
 import * as NodeStakingJSON from "../../artifacts/contracts/NodeStaking.sol/NodeStakingPool.json";
 import * as time from "./time";
+import { ethers } from "ethers";
 
 interface IFixture {
   XCN: XCN;
@@ -45,7 +46,7 @@ export const fixture: Fixture<IFixture | any> = async ([wallet, account1, , acco
     "Solana",
     "SOL",
     XCN.address,
-    toWei("1"),
+    rewardPerBlock,
     startBlock,
     endBlock,
     STRK.address,
@@ -53,7 +54,7 @@ export const fixture: Fixture<IFixture | any> = async ([wallet, account1, , acco
     10,
     wallet.address,
   );
-  await nodeStaking.setRequireStakeAmount(toWei("100"));
+  await nodeStaking.setRequireStakeAmount(requireStakeAmount);
 
   return {
     STRK,
@@ -62,3 +63,6 @@ export const fixture: Fixture<IFixture | any> = async ([wallet, account1, , acco
     nodeStakingFactory,
   };
 };
+
+export const requireStakeAmount = ethers.utils.parseEther("100");
+export const rewardPerBlock = ethers.utils.parseEther("1");

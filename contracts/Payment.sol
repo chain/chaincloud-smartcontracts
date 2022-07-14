@@ -129,7 +129,7 @@ contract Payment is Initializable, OwnableUpgradeable, PausableUpgradeable {
             }
             emit Payment(msg.sender, _token, requireETHAmount, discount[_type][address(0)], _type, _paymentId);
         } else {
-            uint256 requireTokenAmount = getTokenAmountFromUSDT(address(0), usdtAmount);
+            uint256 requireTokenAmount = getTokenAmountFromUSDT(_token, usdtAmount);
 
             IERC20(_token).transferFrom(msg.sender, treasury, requireTokenAmount);
             emit Payment(msg.sender, _token, requireTokenAmount, discount[_type][_token], _type, _paymentId);
@@ -144,6 +144,9 @@ contract Payment is Initializable, OwnableUpgradeable, PausableUpgradeable {
     function getTokenAmountFromUSDT(address _token, uint256 _usdtAmount) public view returns (uint256) {
         (uint256 price, uint8 decimals) = getLatestPrice(_token);
         uint8 usdtDecimals = IERC20Decimals(USDTToken).decimals();
+
+        if (_token == address(0)) return (_usdtAmount * price * 10**18) / (10**decimals * 10**usdtDecimals);
+
         uint8 tokenDecimals = IERC20Decimals(_token).decimals();
         return (_usdtAmount * price * 10**tokenDecimals) / (10**decimals * 10**usdtDecimals);
     }
