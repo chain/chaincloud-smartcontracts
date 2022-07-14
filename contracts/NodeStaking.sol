@@ -8,7 +8,6 @@ import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
-import "hardhat/console.sol";
 
 contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeable {
     using SafeERC20 for IERC20;
@@ -22,8 +21,6 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         uint256 amount; // How many LP tokens the user has provided.
         uint256 rewardDebt; // Reward debt. See explanation below.
         uint256 pendingReward; // Reward but not harvest
-        // TODO: if switch from 1 to 0, transfer reward to user before set stakeTime to 0
-        // bool status; // 0: inactive, 1: active
 
         //   pending reward = (user.amount * accRewardPerShare) - user.rewardDebt
         //
@@ -123,10 +120,6 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
 
         lastRewardBlock = block.number > startBlockNumber ? block.number : startBlockNumber;
         stakeToken = _stakeToken;
-        stakeTokenSupply = 0;
-        totalRunningNode = 0;
-        requireStakeAmount = 0;
-        accRewardPerShare = 0;
         _updatePool();
     }
 
@@ -220,7 +213,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
     function pendingReward(address _user, uint256 _nodeId) public view returns (uint256) {
         NodeStakingUserInfo storage user = userInfo[_user][_nodeId];
 
-        // TODO: reward debt = accRewardPerShare before
+        // reward debt = accRewardPerShare before
         uint256 _accRewardPerShare = accRewardPerShare;
         if (user.stakeTime > 0 && block.number > lastRewardBlock && totalRunningNode != 0) {
             uint256 multiplier = timeMultiplier(lastRewardBlock, block.number);
@@ -243,8 +236,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         }
         uint256 multiplier = timeMultiplier(lastRewardBlock, block.number);
         uint256 poolReward = multiplier * rewardPerBlock;
-        // TODO: stakeTokenSupply or count*requireAmount
-        accRewardPerShare = (accRewardPerShare + ((poolReward * ACCUMULATED_MULTIPLIER) / (totalRunningNode)));
+        accRewardPerShare = (accRewardPerShare + ((poolReward * ACCUMULATED_MULTIPLIER) / totalRunningNode));
         lastRewardBlock = block.number;
     }
 
@@ -256,8 +248,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
 
         uint256 index = userNodeCount[msg.sender]++;
         NodeStakingUserInfo storage user = userInfo[msg.sender][index];
-        // if admin enable staking record, stakeTime will be update
-        // user.stakeTime = block.number;
+
         user.amount = _amount;
         stakeTokenSupply = stakeTokenSupply + _amount;
         stakeToken.safeTransferFrom(address(msg.sender), address(this), _amount);
@@ -283,8 +274,8 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         NodeStakingUserInfo storage user = userInfo[_user][_nodeId];
 
         require(user.stakeTime > 0, "NodeStakingPool: node already disabled");
-        // require(isInWithdrawTime(user.stakeTime), "NodeStakingPool: not in withdraw time");
         _updatePool();
+
         if (user.stakeTime > 0) {
             uint256 pending = ((accRewardPerShare) / ACCUMULATED_MULTIPLIER) - user.rewardDebt;
 
@@ -326,17 +317,15 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         NodeStakingUserInfo storage user = userInfo[msg.sender][_nodeId];
         uint256 multiplier = timeMultiplier(user.stakeTime, block.number);
         uint256 totalPending = pendingReward(msg.sender, _nodeId);
-        console.log("\x1b[36m%s\x1b[0m", "totalPending", totalPending);
         user.pendingReward = 0;
         user.rewardDebt = (accRewardPerShare) / (ACCUMULATED_MULTIPLIER);
 
         uint256 lockReward = _getWithdrawPendingReward(_nodeId, multiplier, totalPending);
-        console.log("\x1b[36m%s\x1b[0m", "lockReward", lockReward);
         if (totalPending > 0) {
             safeRewardTransfer(msg.sender, totalPending - lockReward);
         }
 
-        // TODO: claim pending reward in withdraw time
+        // claim pending reward in withdraw time
         LockWithdrawReward storage record = pendingRewardInWithdrawPeriod[msg.sender][_nodeId];
         if (record.applicableAt > block.number) {
             safeRewardTransfer(msg.sender, record.reward);
@@ -344,7 +333,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         }
 
         if (lockReward > 0) {
-            // TODO: next locking time
+            // next locking time
             record.applicableAt = getNextStartLockingTime(user.stakeTime);
             record.reward += lockReward;
 
