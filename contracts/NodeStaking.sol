@@ -251,7 +251,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
     /**
      * @notice Deposit LP tokens to the farm for reward allocation.
      */
-    function deposit(uint256 nodeId) external {
+    function deposit(uint256 _nodeId) external {
         uint256 _amount = requireStakeAmount;
 
         uint256 index = userNodeCount[msg.sender]++;
@@ -261,7 +261,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         user.amount = _amount;
         stakeTokenSupply = stakeTokenSupply + _amount;
         stakeToken.safeTransferFrom(address(msg.sender), address(this), _amount);
-        emit NodeStakingDeposit(msg.sender, _amount, index, nodeId);
+        emit NodeStakingDeposit(msg.sender, _amount, index, _nodeId);
     }
 
     function enableAddress(address _user, uint256 _nodeId) external onlyOwner {
