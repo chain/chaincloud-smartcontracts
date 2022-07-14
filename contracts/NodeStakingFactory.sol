@@ -80,6 +80,7 @@ contract NodeStakingPoolFactory is Initializable, OwnableUpgradeable, PausableUp
         string memory _symbol,
         address _rewardToken,
         uint256 _rewardPerBlock,
+        uint256 _requireStakeAmount,
         uint256 _startBlock,
         uint256 _endBlock,
         address _stakeToken,
@@ -90,17 +91,21 @@ contract NodeStakingPoolFactory is Initializable, OwnableUpgradeable, PausableUp
         require(_stakeToken != address(0), "NodeStakingPoolFactory: not allow zero address");
         require(_rewardToken != address(0), "NodeStakingPoolFactory: not allow zero address");
 
-        bytes memory bytecode = type(NodeStakingPool).creationCode;
-        uint256 tokenIndex = getCreatedPoolsLengthByToken(msg.sender, _rewardToken);
-        bytes32 salt = keccak256(abi.encodePacked(msg.sender, _rewardToken, tokenIndex));
-        assembly {
-            pool := create2(0, add(bytecode, 32), mload(bytecode), salt)
+        {
+            bytes memory bytecode = type(NodeStakingPool).creationCode;
+            uint256 tokenIndex = getCreatedPoolsLengthByToken(msg.sender, _rewardToken);
+            bytes32 salt = keccak256(abi.encodePacked(msg.sender, _rewardToken, tokenIndex));
+            assembly {
+                pool := create2(0, add(bytecode, 32), mload(bytecode), salt)
+            }
         }
+
         IPool(pool).initialize(
             _name,
             _symbol,
             IERC20(_rewardToken),
             _rewardPerBlock,
+            _requireStakeAmount,
             _startBlock,
             _endBlock,
             IERC20(_stakeToken),

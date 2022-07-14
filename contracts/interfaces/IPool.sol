@@ -9,6 +9,7 @@ interface IPool {
         string memory _symbol,
         IERC20 _rewardToken,
         uint256 _rewardPerBlock,
+        uint256 _requireStakeAmount,
         uint256 _startBlock,
         uint256 _endBlock,
         IERC20 _stakeToken,

@@ -94,6 +94,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         string memory _symbol,
         IERC20 _rewardToken,
         uint256 _rewardPerBlock,
+        uint256 _requireStakeAmount,
         uint256 _startBlock,
         uint256 _endBlock,
         IERC20 _stakeToken,
@@ -112,6 +113,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         symbol = _symbol;
         rewardToken = _rewardToken;
         rewardPerBlock = _rewardPerBlock;
+        requireStakeAmount = _requireStakeAmount;
         startBlockNumber = _startBlock;
         endBlockNumber = _endBlock;
         lockupDuration = _lockupDuration;
@@ -426,7 +428,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         // get time in withdraw period
         uint256 nextLockingTime = getNextStartLockingTime(user.stakeTime);
         uint256 duration = withdrawPeriod - (nextLockingTime - block.number);
-        require(_totalStakeTime > duration, "NodeStakingPool: haven't reward to claim");
+        // require(_totalStakeTime > duration, "NodeStakingPool: haven't reward to claim");
         uint256 reward = (duration * _totalReward) / _totalStakeTime;
 
         return reward;
