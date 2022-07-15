@@ -63,7 +63,7 @@ function getChainConfig(chain: keyof typeof chainIds): NetworkUserConfig {
       jsonRpcUrl = "https://bsc-dataseed1.binance.org";
       break;
     case "bsctestnet":
-      jsonRpcUrl = "https://data-seed-prebsc-1-s1.binance.org:8545";
+      jsonRpcUrl = "https://data-seed-prebsc-2-s1.binance.org:8545";
       break;
     default:
       jsonRpcUrl = "https://" + chain + ".infura.io/v3/" + infuraApiKey;
@@ -110,13 +110,13 @@ const config: HardhatUserConfig = {
     deployments: "./deployments/artifacts",
   },
   solidity: {
-    version: "0.8.13",
+    version: "0.8.11",
     settings: {
       // Disable the optimizer when debugging
       // https://hardhat.org/hardhat-network/#solidity-optimizer-support
       optimizer: {
         enabled: true,
-        runs: 800,
+        runs: 200,
       },
     },
   },

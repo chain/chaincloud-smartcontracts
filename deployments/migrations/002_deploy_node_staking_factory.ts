@@ -6,7 +6,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment): Pr
   const { deploy } = deployments;
   const { deployer } = await getNamedAccounts();
 
-  await deploy("Payment", {
+  await deploy("NodeStakingPoolFactory", {
     from: deployer,
     log: true,
     proxy: {
@@ -14,11 +14,11 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment): Pr
       owner: deployer,
       // execute: {
       //   methodName: "initialize",
-      //   args: [deployer], // change me
+      //   args: [],
       // },
     },
   });
 };
 
-func.tags = ["Payment"];
+func.tags = ["NodeStakingPoolFactory"];
 export default func;
