@@ -368,14 +368,16 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
     function _withdraw(uint256 _nodeId) private {
         NodeStakingUserInfo storage user = userInfo[msg.sender][_nodeId];
         uint256 _amount = user.amount;
+        bool isDisabledBefore = user.stakeTime == 0;
 
         user.amount = 0;
         user.stakeTime = 0;
-
         claimReward(_nodeId);
 
+        if (!isDisabledBefore) {
+            totalRunningNode = totalRunningNode - 1;
+        }
         stakeTokenSupply = stakeTokenSupply - _amount;
-        totalRunningNode = totalRunningNode - 1;
     }
 
     function isInWithdrawTime(uint256 _startTime) public view returns (bool) {

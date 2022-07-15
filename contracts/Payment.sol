@@ -100,42 +100,6 @@ contract Payment is Initializable, OwnableUpgradeable, PausableUpgradeable {
         emit SetDiscount(_type, _token, _discount);
     }
 
-    function getPaymentAmount(PaymentType _type) external returns (uint256) {
-        return paymentAmountInUSDT[_type];
-    }
-
-    function getDiscountAmount(PaymentType _type, address _token) external returns (uint256) {
-        return discount[_type][_token];
-    }
-
-    function pay(
-        PaymentType _type,
-        address _token,
-        uint256 _paymentId
-    ) external payable {
-        uint256 usdtAmount = paymentAmountInUSDT[_type] -
-            (paymentAmountInUSDT[_type] * discount[_type][_token]) /
-            HUNDRED_PERCENT;
-
-        if (_token == address(0)) {
-            uint256 requireETHAmount = getTokenAmountFromUSDT(address(0), usdtAmount);
-
-            require(msg.value >= requireETHAmount, "Payment: not valid pay amount");
-
-            // cashback exceeds amount to sender
-            uint256 exceedETH = msg.value - requireETHAmount;
-            if (exceedETH > 0) {
-                payable(msg.sender).transfer(exceedETH);
-            }
-            emit Payment(msg.sender, _token, requireETHAmount, discount[_type][address(0)], _type, _paymentId);
-        } else {
-            uint256 requireTokenAmount = getTokenAmountFromUSDT(_token, usdtAmount);
-
-            IERC20(_token).transferFrom(msg.sender, treasury, requireTokenAmount);
-            emit Payment(msg.sender, _token, requireTokenAmount, discount[_type][_token], _type, _paymentId);
-        }
-    }
-
     function changeTreasury(address _treasury) external onlyOwner {
         treasury = _treasury;
         emit ChangeTreasury(_treasury);
@@ -166,7 +130,7 @@ contract Payment is Initializable, OwnableUpgradeable, PausableUpgradeable {
         } else if (_token == XCNToken) {
             priceFeed = usdtXcnPriceFeed;
         } else if (_token == USDTToken) {
-            return (1, 1);
+            return (1, 0);
         } else {
             revert("Payment: invalid token");
         }
@@ -174,5 +138,36 @@ contract Payment is Initializable, OwnableUpgradeable, PausableUpgradeable {
         (, int256 price, , , ) = AggregatorV3Interface(priceFeed).latestRoundData();
         uint8 decimals = AggregatorV3Interface(priceFeed).decimals();
         return (uint256(price), decimals);
+    }
+
+    function getDiscountAmount(PaymentType _type, address _token) external view returns (uint256) {
+        return discount[_type][_token];
+    }
+
+    function pay(
+        PaymentType _type,
+        address _token,
+        uint256 _paymentId
+    ) external payable {
+        uint256 usdtAmount = paymentAmountInUSDT[_type] -
+            (paymentAmountInUSDT[_type] * discount[_type][_token]) /
+            HUNDRED_PERCENT;
+
+        uint256 requireAmount = getTokenAmountFromUSDT(_token, usdtAmount);
+        emit Payment(msg.sender, _token, requireAmount, discount[_type][_token], _type, _paymentId);
+
+        if (_token == address(0)) {
+            require(msg.value >= requireAmount, "Payment: not valid pay amount");
+
+            // cashback exceeds amount to sender
+            uint256 exceedETH = msg.value - requireAmount;
+            if (exceedETH > 0) {
+                payable(msg.sender).transfer(exceedETH);
+            }
+
+            return;
+        }
+
+        IERC20(_token).transferFrom(msg.sender, treasury, requireAmount);
     }
 }
