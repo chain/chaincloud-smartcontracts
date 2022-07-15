@@ -51,7 +51,6 @@ export const fixture: Fixture<IFixture | any> = async ([wallet, account1, , acco
   const nodeStaking = (await deployContract(wallet as any, NodeStakingJSON)) as unknown as NodeStakingPool;
 
   const startBlock = await time.latestBlock();
-  const endBlock = startBlock.add(1000000000);
   await nodeStaking.initialize(
     "Solana",
     "SOL",
@@ -59,7 +58,6 @@ export const fixture: Fixture<IFixture | any> = async ([wallet, account1, , acco
     rewardPerBlock,
     requireStakeAmount,
     startBlock,
-    endBlock,
     STRK.address,
     10,
     10,

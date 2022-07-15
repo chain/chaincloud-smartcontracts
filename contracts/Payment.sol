@@ -148,7 +148,7 @@ contract Payment is Initializable, OwnableUpgradeable, PausableUpgradeable {
         PaymentType _type,
         address _token,
         uint256 _paymentId
-    ) external payable {
+    ) external payable whenNotPaused {
         uint256 usdtAmount = paymentAmountInUSDT[_type] -
             (paymentAmountInUSDT[_type] * discount[_type][_token]) /
             HUNDRED_PERCENT;

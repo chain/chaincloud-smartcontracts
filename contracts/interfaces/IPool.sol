@@ -11,7 +11,6 @@ interface IPool {
         uint256 _rewardPerBlock,
         uint256 _requireStakeAmount,
         uint256 _startBlock,
-        uint256 _endBlock,
         IERC20 _stakeToken,
         uint256 _lockupDuration,
         uint256 _withdrawPeriod,

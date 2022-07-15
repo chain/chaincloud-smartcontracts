@@ -74,6 +74,8 @@ describe("Payment", () => {
     });
 
     it("Should able to get lastest price", async () => {
+      await expect(payment.getLatestPrice(account1.address)).to.revertedWith("Payment: invalid token");
+
       const xcnPriceRecord = await payment.getLatestPrice(XCN.address);
       const ethPriceRecord = await payment.getLatestPrice(ethers.constants.AddressZero);
       expect(xcnPriceRecord[0]).to.eq(price);
@@ -84,6 +86,15 @@ describe("Payment", () => {
 
     it("Should able to get XCN amount from USDT amount", async () => {
       // const;
+    });
+
+    it("pause contract", async () => {
+      await payment.pause();
+      await expect(payment.connect(account1).pay(0, XCN.address, 1)).to.revertedWith("Pausable: paused");
+
+      await payment.unpause();
+      await XCN.connect(account1).approve(payment.address, ethers.constants.MaxUint256);
+      await expect(payment.connect(account1).pay(0, XCN.address, 1)).to.not.reverted;
     });
 
     it("Payment with USDT", async () => {
@@ -124,6 +135,24 @@ describe("Payment", () => {
       await expect(
         payment.connect(account1).pay(0, ethers.constants.AddressZero, paymentId, { value: ethRequire.mul(2) }),
       )
+        .to.emit(payment, "Payment")
+        .withArgs(account1.address, ethers.constants.AddressZero, ethRequire, 0, 0, paymentId);
+
+      const postBalance = await account1.getBalance();
+      expect(preBalance.sub(postBalance)).to.gt(ethRequire);
+      expect(preBalance.sub(postBalance)).to.lt(ethRequire.add(ethers.utils.parseEther("0.05")));
+    });
+
+    it("Payment with ETH", async () => {
+      const preBalance = await account1.getBalance();
+      const ethRequire = requireStakeAmount.mul(price).div(ethers.BigNumber.from(10).pow(decimals));
+
+      const paymentId = 0;
+
+      await expect(payment.connect(account1).pay(0, ethers.constants.AddressZero, paymentId)).to.be.revertedWith(
+        "Payment: not valid pay amount",
+      );
+      await expect(payment.connect(account1).pay(0, ethers.constants.AddressZero, paymentId, { value: ethRequire }))
         .to.emit(payment, "Payment")
         .withArgs(account1.address, ethers.constants.AddressZero, ethRequire, 0, 0, paymentId);
 
