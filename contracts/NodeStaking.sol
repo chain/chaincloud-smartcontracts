@@ -205,13 +205,12 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
     function pendingReward(address _user, uint256 _nodeId) public view returns (uint256) {
         NodeStakingUserInfo storage user = userInfo[_user][_nodeId];
 
+        if (user.stakeTime == 0) return user.pendingReward;
+
         // reward debt = accRewardPerShare before
-        uint256 _accRewardPerShare = accRewardPerShare;
-        if (user.stakeTime > 0 && block.number > lastRewardBlock && totalRunningNode > 0) {
-            uint256 multiplier = timeMultiplier(lastRewardBlock, block.number);
-            uint256 poolReward = multiplier * rewardPerBlock;
-            _accRewardPerShare = _accRewardPerShare + ((poolReward * ACCUMULATED_MULTIPLIER) / totalRunningNode);
-        }
+        uint256 multiplier = timeMultiplier(lastRewardBlock, block.number);
+        uint256 poolReward = multiplier * rewardPerBlock;
+        uint256 _accRewardPerShare = accRewardPerShare + ((poolReward * ACCUMULATED_MULTIPLIER) / totalRunningNode);
         return user.pendingReward + ((_accRewardPerShare / ACCUMULATED_MULTIPLIER) - user.rewardDebt);
     }
 
@@ -316,7 +315,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
 
         // claim pending reward in withdraw time
         LockWithdrawReward storage record = pendingRewardInWithdrawPeriod[msg.sender][_nodeId];
-        if (record.applicableAt < block.number && record.reward > 0) {
+        if ((record.applicableAt < block.number && record.reward > 0) || (user.stakeTime == 0)) {
             safeRewardTransfer(msg.sender, record.reward);
             record.reward = 0;
         }
@@ -344,9 +343,9 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         uint256 _amount = user.amount;
         bool isDisabledBefore = user.stakeTime == 0;
 
-        user.amount = 0;
-        user.stakeTime = 0;
         claimReward(_nodeId);
+        user.stakeTime = 0;
+        user.amount = 0;
 
         if (!isDisabledBefore) {
             totalRunningNode = totalRunningNode - 1;
