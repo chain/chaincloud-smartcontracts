@@ -61,6 +61,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
     // the weight of provider to earn reward
     mapping(address => uint256) public userRunningNode;
     mapping(address => uint256) public userNodeCount;
+    mapping(address => uint256) public totalUserStaked;
     // pending reward in withdraw period
     mapping(address => mapping(uint256 => LockWithdrawReward)) public pendingRewardInWithdrawPeriod;
 
@@ -242,6 +243,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
 
         user.amount = _amount;
         stakeTokenSupply = stakeTokenSupply + _amount;
+        totalUserStaked[msg.sender] += _amount;
         stakeToken.safeTransferFrom(address(msg.sender), address(this), _amount);
         emit NodeStakingDeposit(msg.sender, _amount, index, _backendNodeId);
     }
@@ -346,6 +348,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         claimReward(_nodeId);
         user.stakeTime = 0;
         user.amount = 0;
+        totalUserStaked[msg.sender] -= _amount;
 
         if (!isDisabledBefore) {
             totalRunningNode = totalRunningNode - 1;
