@@ -109,10 +109,10 @@ contract Payment is Initializable, OwnableUpgradeable, PausableUpgradeable {
         (uint256 price, uint8 decimals) = getLatestPrice(_token);
         uint8 usdtDecimals = IERC20Decimals(USDTToken).decimals();
 
-        if (_token == address(0)) return (_usdtAmount * price * 10**18) / (10**decimals * 10**usdtDecimals);
+        if (_token == address(0)) return (_usdtAmount * 10**18 * 10**decimals) / (price * 10**usdtDecimals);
 
         uint8 tokenDecimals = IERC20Decimals(_token).decimals();
-        return (_usdtAmount * price * 10**tokenDecimals) / (10**decimals * 10**usdtDecimals);
+        return (_usdtAmount * 10**tokenDecimals * 10**decimals) / (price * 10**usdtDecimals);
     }
 
     function getLatestPrice(address _token)
