@@ -111,7 +111,7 @@ describe("Payment", () => {
 
     it("Payment with XCN", async () => {
       await XCN.connect(account1).approve(payment.address, ethers.constants.MaxUint256);
-      const xcnRequire = requireStakeAmount.mul(9).div(10).mul(price).div(ethers.BigNumber.from(10).pow(decimals));
+      const xcnRequire = requireStakeAmount.mul(9).div(10).mul(ethers.BigNumber.from(10).pow(decimals)).div(price);
       const preBalance = await XCN.balanceOf(account1.address);
 
       const paymentId = 0;
@@ -125,7 +125,7 @@ describe("Payment", () => {
 
     it("Payment with ETH", async () => {
       const preBalance = await account1.getBalance();
-      const ethRequire = requireStakeAmount.mul(price).div(ethers.BigNumber.from(10).pow(decimals));
+      const ethRequire = requireStakeAmount.div(price).mul(ethers.BigNumber.from(10).pow(decimals));
 
       const paymentId = 0;
 
@@ -145,7 +145,7 @@ describe("Payment", () => {
 
     it("Payment with ETH", async () => {
       const preBalance = await account1.getBalance();
-      const ethRequire = requireStakeAmount.mul(price).div(ethers.BigNumber.from(10).pow(decimals));
+      const ethRequire = requireStakeAmount.div(price).mul(ethers.BigNumber.from(10).pow(decimals));
 
       const paymentId = 0;
 

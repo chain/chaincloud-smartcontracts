@@ -532,13 +532,16 @@ describe("Node Staking", () => {
 
       await nodeStaking.connect(account2).claimReward(0);
 
-      await time.advanceBlockBy(9);
+      await time.advanceBlockBy(22);
 
       const preBalance = await XCN.balanceOf(account2.address);
       const pendingRwInWithdrawTime = await nodeStaking.getPendingRewardInWithdrawPeriod(account2.address, 0);
+      const pendingRwInOldLockTime = await nodeStaking.getPendingRewardInLockupPeriod(account2.address, 0);
       await nodeStaking.connect(account2).claimReward(0);
       const postBalance = await XCN.balanceOf(account2.address);
-      expect(postBalance.sub(preBalance)).to.eq(ethers.utils.parseEther("5").add(pendingRwInWithdrawTime.reward));
+      expect(postBalance.sub(preBalance)).to.eq(
+        ethers.utils.parseEther("8.5").add(pendingRwInWithdrawTime.reward).add(pendingRwInOldLockTime.reward),
+      );
     });
 
     it("Deposit, then enable address, then disable, then claim reward in lock period", async () => {
