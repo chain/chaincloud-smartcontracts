@@ -315,6 +315,61 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
      * @notice Harvest proceeds msg.sender
      */
     function claimReward(uint256 _nodeId) public nonReentrant whenNotPaused returns (uint256) {
+        return _claimReward(_nodeId);
+    }
+
+    /**
+     * @notice Withdraw LP tokens from
+     * @param _nodeId nodeId to withdraw
+     */
+    function _withdraw(uint256 _nodeId) private {
+        NodeStakingUserInfo storage user = userInfo[msg.sender][_nodeId];
+        uint256 _amount = user.amount;
+        bool isDisabledBefore = user.stakeTime == 0;
+
+        _claimReward(_nodeId);
+        user.stakeTime = 0;
+        user.amount = 0;
+        totalUserStaked[msg.sender] -= _amount;
+
+        if (!isDisabledBefore) {
+            totalRunningNode = totalRunningNode - 1;
+        }
+        stakeTokenSupply = stakeTokenSupply - _amount;
+    }
+
+    function isInWithdrawTime(uint256 _startTime) public view returns (bool) {
+        uint256 duration = block.number - _startTime;
+        // tmp is the times that done lockupDuration
+        uint256 tmp = duration / (lockupDuration + withdrawPeriod);
+        uint256 currentTime = duration - tmp * (lockupDuration + withdrawPeriod);
+
+        return currentTime >= lockupDuration;
+    }
+
+    function getNextStartLockingTime(uint256 _startTime) public view returns (uint256) {
+        if (_startTime == 0) return block.number;
+        uint256 duration = block.number - _startTime;
+        // multiplier is the times that done lockupDuration
+        uint256 multiplier = duration / (lockupDuration + withdrawPeriod);
+
+        return _startTime + (multiplier + 1) * (lockupDuration + withdrawPeriod);
+    }
+
+    /**
+     * @notice Safe reward transfer function, just in case if reward distributor dose not have enough reward tokens.
+     * @param _to address of the receiver
+     * @param _amount amount of the reward token
+     */
+    function safeRewardTransfer(address _to, uint256 _amount) private {
+        uint256 bal = rewardToken.balanceOf(rewardDistributor);
+
+        require(_amount <= bal, "NodeStakingPool: not enough reward token");
+
+        rewardToken.safeTransferFrom(rewardDistributor, _to, _amount);
+    }
+
+    function _claimReward(uint256 _nodeId) private returns (uint256) {
         _updatePool();
         NodeStakingUserInfo storage user = userInfo[msg.sender][_nodeId];
         uint256 totalPending = pendingReward(msg.sender, _nodeId);
@@ -375,57 +430,6 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         return totalPending;
     }
 
-    /**
-     * @notice Withdraw LP tokens from
-     * @param _nodeId nodeId to withdraw
-     */
-    function _withdraw(uint256 _nodeId) private {
-        NodeStakingUserInfo storage user = userInfo[msg.sender][_nodeId];
-        uint256 _amount = user.amount;
-        bool isDisabledBefore = user.stakeTime == 0;
-
-        claimReward(_nodeId);
-        user.stakeTime = 0;
-        user.amount = 0;
-        totalUserStaked[msg.sender] -= _amount;
-
-        if (!isDisabledBefore) {
-            totalRunningNode = totalRunningNode - 1;
-        }
-        stakeTokenSupply = stakeTokenSupply - _amount;
-    }
-
-    function isInWithdrawTime(uint256 _startTime) public view returns (bool) {
-        uint256 duration = block.number - _startTime;
-        // tmp is the times that done lockupDuration
-        uint256 tmp = duration / (lockupDuration + withdrawPeriod);
-        uint256 currentTime = duration - tmp * (lockupDuration + withdrawPeriod);
-
-        return currentTime >= lockupDuration;
-    }
-
-    function getNextStartLockingTime(uint256 _startTime) public view returns (uint256) {
-        if (_startTime == 0) return block.number;
-        uint256 duration = block.number - _startTime;
-        // multiplier is the times that done lockupDuration
-        uint256 multiplier = duration / (lockupDuration + withdrawPeriod);
-
-        return _startTime + (multiplier + 1) * (lockupDuration + withdrawPeriod);
-    }
-
-    /**
-     * @notice Safe reward transfer function, just in case if reward distributor dose not have enough reward tokens.
-     * @param _to address of the receiver
-     * @param _amount amount of the reward token
-     */
-    function safeRewardTransfer(address _to, uint256 _amount) private {
-        uint256 bal = rewardToken.balanceOf(rewardDistributor);
-
-        require(_amount <= bal, "NodeStakingPool: not enough reward token");
-
-        rewardToken.safeTransferFrom(rewardDistributor, _to, _amount);
-    }
-
     // lượng reward trong withdraw period
     function _getWithdrawPendingReward(
         uint256 _nodeId,
@@ -467,8 +471,11 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
             return 0;
         }
 
-        // get time in withdraw period
-        uint256 lastLockingTime = getNextStartLockingTime(user.stakeTime) - lockupDuration - withdrawPeriod;
+        // get time in lockup period and last withdraw period
+        uint256 lastLockingTime = getNextStartLockingTime(user.stakeTime) -
+            withdrawPeriod -
+            lockupDuration -
+            withdrawPeriod;
         uint256 lastBlock = user.lastClaimBlock > lastLockingTime ? user.lastClaimBlock : lastLockingTime;
         uint256 duration = block.number - lastBlock;
         uint256 reward = (duration * _totalReward) / _totalStakeTime;
