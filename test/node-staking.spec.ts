@@ -126,6 +126,14 @@ describe("Node Staking", () => {
       expect(await nodeStaking.getNextStartLockingTime(690)).to.eq(710);
       expect(await nodeStaking.getNextStartLockingTime(0)).to.eq(await time.latestBlock());
     });
+
+    it("getLastEndLockingTime", async () => {
+      // lock time = 10, withdraw time = 10
+      await time.advanceBlockTo(800);
+      expect(await nodeStaking.getLastEndLockingTime(20)).to.eq(790);
+      await time.advanceBlockTo(810);
+      expect(await nodeStaking.getLastEndLockingTime(20)).to.eq(810);
+    });
   });
 
   describe("Deposit, withdraw, not enable address => haven't reward", async () => {
