@@ -204,11 +204,7 @@ describe("Node Staking", () => {
 
       // withdraw and check state: acc2 + 55, acc1 + 100 + 55
       await nodeStaking.connect(account1).withdraw(0);
-      const tx = await nodeStaking.connect(account2).withdraw(0);
-      console.log("\x1b[36m%s\x1b[0m", "tx", tx.blockNumber);
-      const eventFilter = nodeStaking.filters.NodeStakingRewardsHarvested();
-      const events = await nodeStaking.queryFilter(eventFilter, tx.blockNumber, tx.blockNumber);
-      console.log("\x1b[36m%s\x1b[0m", "events", events[0].args);
+      await nodeStaking.connect(account2).withdraw(0);
 
       const acc2XCNBalance2 = await XCN.balanceOf(account2.address);
       const acc2STRKBalance3 = await STRK.balanceOf(account2.address);
@@ -360,7 +356,7 @@ describe("Node Staking", () => {
       // claim reward
       const acc1XCNBalance1 = await XCN.balanceOf(account1.address);
 
-      const acc1PendingReward = await nodeStaking.pendingReward(account1.address, 0);
+      const acc1PendingReward = await nodeStaking.totalReward(account1.address, 0);
       expect(acc1PendingReward).to.eq(acc1NodeInfo.pendingReward);
 
       await expect(nodeStaking.connect(account1).claimReward(0))
@@ -401,7 +397,7 @@ describe("Node Staking", () => {
       // claim reward
       const acc1XCNBalance1 = await XCN.balanceOf(account1.address);
 
-      const acc1PendingReward = await nodeStaking.pendingReward(account1.address, 0);
+      const acc1PendingReward = await nodeStaking.totalReward(account1.address, 0);
       expect(acc1PendingReward).to.eq(acc1NodeInfo.pendingReward);
 
       await expect(nodeStaking.connect(account1).claimReward(0))
@@ -535,13 +531,10 @@ describe("Node Staking", () => {
       await time.advanceBlockBy(22);
 
       const preBalance = await XCN.balanceOf(account2.address);
-      const pendingRwInWithdrawTime = await nodeStaking.getPendingRewardInWithdrawPeriod(account2.address, 0);
-      const pendingRwInOldLockTime = await nodeStaking.getPendingRewardInLockupPeriod(account2.address, 0);
+      const pendingRwInWithdrawTime = await nodeStaking.getPendingReward(account2.address, 0);
       await nodeStaking.connect(account2).claimReward(0);
       const postBalance = await XCN.balanceOf(account2.address);
-      expect(postBalance.sub(preBalance)).to.eq(
-        ethers.utils.parseEther("8.5").add(pendingRwInWithdrawTime.reward).add(pendingRwInOldLockTime.reward),
-      );
+      expect(postBalance.sub(preBalance)).to.eq(ethers.utils.parseEther("8.5").add(pendingRwInWithdrawTime.reward));
     });
 
     it("Deposit, then enable address, then disable, then claim reward in lock period", async () => {
@@ -572,7 +565,7 @@ describe("Node Staking", () => {
       await nodeStaking.disableAddress(account2.address, 0);
 
       const preBalance = await XCN.balanceOf(account2.address);
-      const pendingRwInWithdrawTime = await nodeStaking.getPendingRewardInWithdrawPeriod(account2.address, 0);
+      const pendingRwInWithdrawTime = await nodeStaking.getPendingReward(account2.address, 0);
       const reward = await nodeStaking.connect(account2).callStatic.claimReward(0);
       await nodeStaking.connect(account2).claimReward(0);
       const postBalance = await XCN.balanceOf(account2.address);
@@ -630,7 +623,7 @@ describe("Node Staking", () => {
       await nodeStaking.disableAddress(account2.address, 0);
 
       const preBalance = await XCN.balanceOf(account2.address);
-      const pendingRwInWithdrawTime = await nodeStaking.getPendingRewardInWithdrawPeriod(account2.address, 0);
+      const pendingRwInWithdrawTime = await nodeStaking.getPendingReward(account2.address, 0);
 
       const rwDistributorBalance = await XCN.balanceOf(deployer.address);
       await XCN.transfer(account1.address, rwDistributorBalance);
