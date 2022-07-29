@@ -368,6 +368,12 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         rewardToken.safeTransferFrom(rewardDistributor, _to, _amount);
     }
 
+    function getAvailableReward(uint256 _nodeId) external view returns (uint256) {
+        NodeStakingUserInfo memory user = userInfo[msg.sender][_nodeId];
+        uint256 totalPending = totalReward(msg.sender, _nodeId);
+        return totalPending - _getPendingReward(_nodeId, block.number - user.lastClaimBlock, totalPending);
+    }
+
     function _claimReward(uint256 _nodeId) private returns (uint256) {
         _updatePool();
         NodeStakingUserInfo storage user = userInfo[msg.sender][_nodeId];
@@ -410,8 +416,8 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         uint256 _nodeId,
         uint256 _totalStakeTime,
         uint256 _totalReward
-    ) private returns (uint256) {
-        NodeStakingUserInfo storage user = userInfo[msg.sender][_nodeId];
+    ) private view returns (uint256) {
+        NodeStakingUserInfo memory user = userInfo[msg.sender][_nodeId];
         if (user.stakeTime == 0) return 0;
 
         // get time in lockup period and last withdraw period
