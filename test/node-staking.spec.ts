@@ -369,7 +369,7 @@ describe("Node Staking", () => {
 
       await expect(nodeStaking.connect(account1).claimReward(0))
         .emit(nodeStaking, "NodeStakingRewardsHarvested")
-        .withArgs(account1.address, acc1PendingReward);
+        .withArgs(account1.address, acc1PendingReward, 0);
 
       const acc1XCNBalance2 = await XCN.balanceOf(account1.address);
       expect(acc1XCNBalance2.sub(acc1XCNBalance1)).to.eq(acc1PendingReward);
@@ -410,7 +410,7 @@ describe("Node Staking", () => {
 
       await expect(nodeStaking.connect(account1).claimReward(0))
         .emit(nodeStaking, "NodeStakingRewardsHarvested")
-        .withArgs(account1.address, acc1PendingReward);
+        .withArgs(account1.address, acc1PendingReward, 0);
 
       const acc1XCNBalance2 = await XCN.balanceOf(account1.address);
       expect(acc1XCNBalance2.sub(acc1XCNBalance1)).to.eq(acc1PendingReward);
@@ -420,9 +420,9 @@ describe("Node Staking", () => {
 
       await expect(nodeStaking.connect(account1).withdraw(0))
         .emit(nodeStaking, "NodeStakingRewardsHarvested")
-        .withArgs(account1.address, 0)
+        .withArgs(account1.address, 0, 0)
         .emit(nodeStaking, "NodeStakingWithdraw")
-        .withArgs(account1.address, requireStakeAmount);
+        .withArgs(account1.address, requireStakeAmount, 0);
 
       await expect(nodeStaking.connect(account1).withdraw(0)).to.revertedWith(
         "NodeStakingPool: have not any token to withdraw",
@@ -455,9 +455,9 @@ describe("Node Staking", () => {
       // withdraw
       await expect(nodeStaking.connect(account1).withdraw(0))
         .emit(nodeStaking, "NodeStakingRewardsHarvested")
-        .withArgs(account1.address, ethers.utils.parseEther("157.5")) // 157.5 = 1 + 1 + 100 + 111/2
+        .withArgs(account1.address, ethers.utils.parseEther("157.5"), 0) // 157.5 = 1 + 1 + 100 + 111/2
         .emit(nodeStaking, "NodeStakingWithdraw")
-        .withArgs(account1.address, requireStakeAmount);
+        .withArgs(account1.address, requireStakeAmount, 0);
 
       const acc1STRKBalance2 = await STRK.balanceOf(account1.address);
 
@@ -467,13 +467,13 @@ describe("Node Staking", () => {
       await time.advanceBlockBy(100);
       await expect(nodeStaking.connect(account2).claimReward(10))
         .emit(nodeStaking, "NodeStakingRewardsHarvested")
-        .withArgs(account2.address, ethers.utils.parseEther("0"));
+        .withArgs(account2.address, ethers.utils.parseEther("0"), 10);
 
       await expect(nodeStaking.connect(account2).withdraw(0))
         .emit(nodeStaking, "NodeStakingRewardsHarvested")
-        .withArgs(account2.address, ethers.utils.parseEther("157.5")) // 157.5 = 1 + 100 + 111/2
+        .withArgs(account2.address, ethers.utils.parseEther("157.5"), 0) // 157.5 = 1 + 100 + 111/2
         .emit(nodeStaking, "NodeStakingWithdraw")
-        .withArgs(account2.address, requireStakeAmount);
+        .withArgs(account2.address, requireStakeAmount, 0);
     });
 
     it("Deposit, then enable address, then claim reward", async () => {
@@ -496,20 +496,20 @@ describe("Node Staking", () => {
       // withdraw
       await expect(nodeStaking.connect(account1).claimReward(0))
         .emit(nodeStaking, "NodeStakingRewardsHarvested")
-        .withArgs(account1.address, ethers.utils.parseEther("157.5")); // 157.5 = 1 + 1 + 100 + 111/2
+        .withArgs(account1.address, ethers.utils.parseEther("157.5"), 0); // 157.5 = 1 + 1 + 100 + 111/2
 
       // increase 100 blocks
       await time.advanceBlockBy(100);
 
       await expect(nodeStaking.connect(account2).claimReward(0))
         .emit(nodeStaking, "NodeStakingRewardsHarvested")
-        .withArgs(account2.address, ethers.utils.parseEther("106")); // 106 = 50 + 112/2
+        .withArgs(account2.address, ethers.utils.parseEther("106"), 0); // 106 = 50 + 112/2
       // withdraw
       await expect(nodeStaking.connect(account1).withdraw(0))
         .emit(nodeStaking, "NodeStakingRewardsHarvested")
-        .withArgs(account1.address, ethers.utils.parseEther("51")) // 50 + 1
+        .withArgs(account1.address, ethers.utils.parseEther("51"), 0) // 50 + 1
         .emit(nodeStaking, "NodeStakingWithdraw")
-        .withArgs(account1.address, requireStakeAmount);
+        .withArgs(account1.address, requireStakeAmount, 0);
     });
 
     it("Deposit, then enable address, then claim reward in lock period", async () => {
@@ -527,7 +527,7 @@ describe("Node Staking", () => {
       await nodeStaking.enableAddress(account2.address, 0);
       await expect(nodeStaking.connect(account2).claimReward(10))
         .emit(nodeStaking, "NodeStakingRewardsHarvested")
-        .withArgs(account2.address, ethers.utils.parseEther("0"));
+        .withArgs(account2.address, ethers.utils.parseEther("0"), 10);
       // increase 110 blocks
       await time.advanceBlockBy(110);
 
@@ -566,7 +566,7 @@ describe("Node Staking", () => {
       await time.advanceBlockBy(101);
       await expect(nodeStaking.connect(account2).claimReward(10))
         .emit(nodeStaking, "NodeStakingRewardsHarvested")
-        .withArgs(account2.address, ethers.utils.parseEther("0"));
+        .withArgs(account2.address, ethers.utils.parseEther("0"), 10);
       await nodeStaking.connect(account2).claimReward(0); // 106 = 50 + 112/2
 
       await time.advanceBlockBy(8);
@@ -602,7 +602,7 @@ describe("Node Staking", () => {
 
       await expect(nodeStaking.connect(account2).claimReward(10))
         .emit(nodeStaking, "NodeStakingRewardsHarvested")
-        .withArgs(account2.address, ethers.utils.parseEther("0"));
+        .withArgs(account2.address, ethers.utils.parseEther("0"), 10);
     });
 
     it("Deposit, then enable address, then disable, then claim reward in lock period - 02", async () => {
@@ -643,7 +643,7 @@ describe("Node Staking", () => {
       await nodeStaking.pendingReward(account1.address, 0);
       await expect(nodeStaking.connect(account2).claimReward(10))
         .emit(nodeStaking, "NodeStakingRewardsHarvested")
-        .withArgs(account2.address, ethers.utils.parseEther("0"));
+        .withArgs(account2.address, ethers.utils.parseEther("0"), 10);
       const reward = await nodeStaking.connect(account2).callStatic.claimReward(0);
       await nodeStaking.connect(account2).claimReward(0);
       const postBalance = await XCN.balanceOf(account2.address);

@@ -70,8 +70,8 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
     event NodeStakingDeposit(address user, uint256 amount, uint256 userNodeId, uint256 backendNodeId);
     event NodeStakingEnableAddress(address user, uint256 userNodeId);
     event NodeStakingDisableAddress(address user, uint256 userNodeId);
-    event NodeStakingWithdraw(address user, uint256 amount);
-    event NodeStakingRewardsHarvested(address user, uint256 amount);
+    event NodeStakingWithdraw(address user, uint256 amount, uint256 userNodeId);
+    event NodeStakingRewardsHarvested(address user, uint256 amount, uint256 userNodeId);
     event SetRequireStakeAmount(uint256 amount);
     event SetRewardDistributor(address rewardDistributor);
     event SetRewardPerBlock(uint256 rewardPerBlock);
@@ -295,7 +295,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         _withdraw(_nodeId);
 
         stakeToken.safeTransfer(address(msg.sender), amount);
-        emit NodeStakingWithdraw(msg.sender, amount);
+        emit NodeStakingWithdraw(msg.sender, amount, _nodeId);
     }
 
     /**
@@ -407,7 +407,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
 
         user.lastClaimBlock = block.number;
 
-        emit NodeStakingRewardsHarvested(msg.sender, totalPending);
+        emit NodeStakingRewardsHarvested(msg.sender, totalPending, _nodeId);
         return totalPending;
     }
 
