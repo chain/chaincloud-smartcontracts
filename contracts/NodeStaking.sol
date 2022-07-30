@@ -368,10 +368,10 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         rewardToken.safeTransferFrom(rewardDistributor, _to, _amount);
     }
 
-    function getAvailableReward(uint256 _nodeId) external view returns (uint256) {
-        NodeStakingUserInfo memory user = userInfo[msg.sender][_nodeId];
-        uint256 totalPending = totalReward(msg.sender, _nodeId);
-        return totalPending - _getPendingReward(_nodeId, block.number - user.lastClaimBlock, totalPending);
+    function getAvailableReward(address _user, uint256 _nodeId) external view returns (uint256) {
+        NodeStakingUserInfo memory user = userInfo[_user][_nodeId];
+        uint256 totalPending = totalReward(_user, _nodeId);
+        return totalPending - _getPendingReward(_user, _nodeId, block.number - user.lastClaimBlock, totalPending);
     }
 
     function _claimReward(uint256 _nodeId) private returns (uint256) {
@@ -381,7 +381,12 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         user.pendingReward = 0;
         user.rewardDebt = (accRewardPerShare) / (ACCUMULATED_MULTIPLIER);
 
-        uint256 tempPendingReward = _getPendingReward(_nodeId, block.number - user.lastClaimBlock, totalPending);
+        uint256 tempPendingReward = _getPendingReward(
+            msg.sender,
+            _nodeId,
+            block.number - user.lastClaimBlock,
+            totalPending
+        );
         uint256 totalAmount = 0;
 
         // claim pending reward in withdraw time
@@ -413,11 +418,12 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
 
     // lượng reward trong lockup period
     function _getPendingReward(
+        address _user,
         uint256 _nodeId,
         uint256 _totalStakeTime,
         uint256 _totalReward
     ) private view returns (uint256) {
-        NodeStakingUserInfo memory user = userInfo[msg.sender][_nodeId];
+        NodeStakingUserInfo memory user = userInfo[_user][_nodeId];
         if (user.stakeTime == 0) return 0;
 
         // get time in lockup period and last withdraw period

@@ -6,16 +6,20 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment): Pr
   const { deploy } = deployments;
   const { deployer } = await getNamedAccounts();
 
+  const XCN = await deployments.get("XCN");
+  const USDT = await deployments.get("USDT");
+  const Oracle = await deployments.get("MockOracle");
+
   await deploy("Payment", {
     from: deployer,
     log: true,
     proxy: {
       proxyContract: "OptimizedTransparentProxy",
       owner: deployer,
-      // execute: {
-      //   methodName: "initialize",
-      //   args: [deployer], // change me
-      // },
+      execute: {
+        methodName: "initialize",
+        args: [deployer, XCN.address, USDT.address, Oracle.address, Oracle.address], // change me
+      },
     },
   });
 };

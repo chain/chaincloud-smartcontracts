@@ -100,6 +100,7 @@ const config: HardhatUserConfig = {
     kovan: getChainConfig("kovan"),
     ropsten: getChainConfig("ropsten"),
     bsctestnet: getChainConfig("bsctestnet"),
+    bsc_stg: getChainConfig("bsctestnet"),
   },
   paths: {
     artifacts: "./artifacts",
