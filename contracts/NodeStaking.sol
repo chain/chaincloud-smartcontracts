@@ -5,15 +5,17 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts-upgradeable/utils/structs/EnumerableSetUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
-contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeable, ReentrancyGuardUpgradeable {
+contract NodeStakingPool is Initializable, AccessControlUpgradeable, PausableUpgradeable, ReentrancyGuardUpgradeable {
     using SafeERC20 for IERC20;
     using SafeCastUpgradeable for uint256;
 
+    bytes32 public constant PROPOSAL_ROLE = keccak256("PROPOSAL_ROLE");
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     uint256 private constant ACCUMULATED_MULTIPLIER = 1e12;
 
     // Info of each user + id.
@@ -100,8 +102,10 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         uint256 _withdrawPeriod,
         address _rewardDistributor
     ) external initializer {
-        __Ownable_init();
-        transferOwnership(tx.origin);
+        __AccessControl_init();
+        _setupRole(DEFAULT_ADMIN_ROLE, tx.origin);
+        _setupRole(ADMIN_ROLE, tx.origin);
+        _setupRole(PROPOSAL_ROLE, tx.origin);
         require(address(_rewardToken) != address(0), "NodeStakingPool: invalid reward token address");
         require(_lockupDuration > 0, "NodeStakingPool: lockupDuration must be gt 0");
         require(_withdrawPeriod > 0, "NodeStakingPool: withdrawPeriod must be gt 0");
@@ -124,14 +128,14 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
     /**
      * @notice Pause contract
      */
-    function pause() external onlyOwner {
+    function pause() external onlyRole(PROPOSAL_ROLE) {
         _pause();
     }
 
     /**
      * @notice Unpause contract
      */
-    function unpause() external onlyOwner {
+    function unpause() external onlyRole(PROPOSAL_ROLE) {
         _unpause();
     }
 
@@ -139,7 +143,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
      * @notice Set require stake amount
      * @param _requireStakeAmount amount want to set
      */
-    function setRequireStakeAmount(uint256 _requireStakeAmount) external onlyOwner {
+    function setRequireStakeAmount(uint256 _requireStakeAmount) external onlyRole(PROPOSAL_ROLE) {
         requireStakeAmount = _requireStakeAmount;
         emit SetRequireStakeAmount(_requireStakeAmount);
     }
@@ -148,7 +152,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
      * @notice Set the reward distributor. Can only be called by the owner.
      * @param _rewardDistributor the reward distributor
      */
-    function setRewardDistributor(address _rewardDistributor) external onlyOwner {
+    function setRewardDistributor(address _rewardDistributor) external onlyRole(PROPOSAL_ROLE) {
         require(_rewardDistributor != address(0), "NodeStakingPool: invalid reward distributor");
         rewardDistributor = _rewardDistributor;
         emit SetRewardDistributor(_rewardDistributor);
@@ -159,7 +163,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         uint256 _lockupDuration,
         uint256 _withdrawPeriod,
         address _rewardDistributor
-    ) external onlyOwner {
+    ) external onlyRole(PROPOSAL_ROLE) {
         require(_lockupDuration > 0, "NodeStakingPool: lockupDuration must be gt 0");
         require(_withdrawPeriod > 0, "NodeStakingPool: withdrawPeriod must be gt 0");
 
@@ -246,7 +250,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         emit NodeStakingDeposit(msg.sender, _amount, index, _backendNodeId);
     }
 
-    function enableAddress(address _user, uint256 _nodeId) external onlyOwner {
+    function enableAddress(address _user, uint256 _nodeId) external onlyRole(ADMIN_ROLE) {
         NodeStakingUserInfo storage user = userInfo[_user][_nodeId];
 
         require(user.amount != 0, "NodeStakingPool: invalid node id");
@@ -262,7 +266,7 @@ contract NodeStakingPool is Initializable, OwnableUpgradeable, PausableUpgradeab
         emit NodeStakingEnableAddress(_user, _nodeId);
     }
 
-    function disableAddress(address _user, uint256 _nodeId) external onlyOwner {
+    function disableAddress(address _user, uint256 _nodeId) external onlyRole(ADMIN_ROLE) {
         NodeStakingUserInfo storage user = userInfo[_user][_nodeId];
 
         require(user.stakeTime > 0, "NodeStakingPool: node already disabled");
