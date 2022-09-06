@@ -58,9 +58,9 @@ contract NodeStakingPool is Initializable, AccessControlUpgradeable, PausableUpg
     mapping(address => mapping(uint256 => NodeStakingUserInfo)) public userInfo;
     // The block number when rewards mining starts.
     uint256 public startBlockNumber;
-    // withdraw period
+    // withdraw period: in withdrawPeriod, user can unstake
     uint256 public withdrawPeriod;
-    // lockup duration
+    // lockup duration: in lockupDuration, user cannot unstake
     uint256 public lockupDuration;
     // the weight of provider to earn reward
     mapping(address => uint256) public userRunningNode;
