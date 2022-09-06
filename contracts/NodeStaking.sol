@@ -60,7 +60,7 @@ contract NodeStakingPool is Initializable, AccessControlUpgradeable, PausableUpg
     uint256 public startBlockNumber;
     // withdraw period
     uint256 public withdrawPeriod;
-    // withdraw period
+    // lockup duration
     uint256 public lockupDuration;
     // the weight of provider to earn reward
     mapping(address => uint256) public userRunningNode;
@@ -331,9 +331,8 @@ contract NodeStakingPool is Initializable, AccessControlUpgradeable, PausableUpg
 
     function isInWithdrawTime(uint256 _startTime) public view returns (bool) {
         uint256 duration = block.number - _startTime;
-        // tmp is the times that done lockupDuration
-        uint256 tmp = duration / (lockupDuration + withdrawPeriod);
-        uint256 currentTime = duration - tmp * (lockupDuration + withdrawPeriod);
+        uint256 multiplier = duration / (lockupDuration + withdrawPeriod);
+        uint256 currentTime = duration - multiplier * (lockupDuration + withdrawPeriod);
 
         return currentTime >= lockupDuration;
     }
