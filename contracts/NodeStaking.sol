@@ -324,7 +324,8 @@ contract NodeStakingPool is Initializable, AccessControlUpgradeable, PausableUpg
         totalUserStaked[msg.sender] -= _amount;
 
         if (!isDisabledBefore) {
-            totalRunningNode = totalRunningNode - 1;
+            totalRunningNode -= 1;
+            userRunningNode[msg.sender] -= 1;
         }
         stakeTokenSupply = stakeTokenSupply - _amount;
     }
