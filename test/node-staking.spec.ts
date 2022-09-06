@@ -383,6 +383,8 @@ describe("Node Staking", () => {
       // enable address
       await nodeStaking.enableAddress(account1.address, 0);
 
+      expect(await nodeStaking.userRunningNode(account1.address)).to.equal(1);
+
       // increase 100 blocks
       await time.advanceBlockBy(100);
       await expect(nodeStaking.connect(account1).withdraw(0)).to.revertedWith("NodeStakingPool: not in withdraw time");
@@ -390,8 +392,15 @@ describe("Node Staking", () => {
       await nodeStaking.connect(account2).deposit(1);
       await nodeStaking.enableAddress(account2.address, 0);
 
+      expect(await nodeStaking.userRunningNode(account2.address)).to.equal(1);
+      expect(await nodeStaking.totalRunningNode()).to.equal(2);
+
       // disable address
       await nodeStaking.disableAddress(account2.address, 0);
+
+      expect(await nodeStaking.userRunningNode(account2.address)).to.equal(0);
+      expect(await nodeStaking.totalRunningNode()).to.equal(1);
+
       await expect(nodeStaking.disableAddress(account2.address, 0)).to.revertedWith(
         "NodeStakingPool: node already disabled",
       );
