@@ -8,12 +8,16 @@ import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 
 import "./NodeStaking.sol";
 import "./interfaces/IPool.sol";
+import "./proxy/OptimizedTransparentUpgradeableProxy.sol";
 
 contract NodeStakingPoolFactory is Initializable, OwnableUpgradeable, PausableUpgradeable {
     // Array of created Pools Address
     address[] public allPools;
     // Mapping from User token. From tokens to array of created Pools for token
     mapping(address => mapping(address => address[])) public getPools;
+    // address of implementation contract
+    address public nodeStakingImplementation;
+
     event NodeStakingPoolCreated(
         address registedBy,
         string name,
@@ -71,6 +75,14 @@ contract NodeStakingPoolFactory is Initializable, OwnableUpgradeable, PausableUp
         return getPools[_creator][_token].length;
     }
 
+    function deployImplementation() external onlyOwner {
+        nodeStakingImplementation = address(new NodeStakingPool());
+    }
+
+    function upgradeImplementation(address proxy, address newImpl) external onlyOwner {
+        OptimizedTransparentUpgradeableProxy(payable(proxy)).upgradeTo(newImpl);
+    }
+
     /**
      * @notice Register NodeStakingPool for tokens
      * @dev To register, you MUST have an ERC20 token
@@ -86,20 +98,13 @@ contract NodeStakingPoolFactory is Initializable, OwnableUpgradeable, PausableUp
         uint256 _lockupDuration,
         uint256 _withdrawPeriod,
         address _rewardDistributor
-    ) external whenNotPaused returns (address pool) {
+    ) external whenNotPaused onlyOwner returns (address pool) {
+        require(nodeStakingImplementation != address(0), "NodeStakingPoolFactory: please deploy implemention before");
         require(_stakeToken != address(0), "NodeStakingPoolFactory: not allow zero address");
         require(_rewardToken != address(0), "NodeStakingPoolFactory: not allow zero address");
 
-        {
-            bytes memory bytecode = type(NodeStakingPool).creationCode;
-            uint256 tokenIndex = getCreatedPoolsLengthByToken(msg.sender, _rewardToken);
-            bytes32 salt = keccak256(abi.encodePacked(msg.sender, _rewardToken, tokenIndex));
-            assembly {
-                pool := create2(0, add(bytecode, 32), mload(bytecode), salt)
-            }
-        }
-
-        IPool(pool).initialize(
+        bytes memory initData = abi.encodeWithSignature(
+            "initialize(string,string,address,uint256,uint256,uint256,address,uint256,uint256,address)",
             _name,
             _symbol,
             IERC20(_rewardToken),
@@ -111,6 +116,15 @@ contract NodeStakingPoolFactory is Initializable, OwnableUpgradeable, PausableUp
             _withdrawPeriod,
             _rewardDistributor
         );
+
+        pool = address(
+            new OptimizedTransparentUpgradeableProxy(
+                nodeStakingImplementation,
+                address(this), /* admin */
+                initData
+            )
+        );
+
         getPools[msg.sender][_rewardToken].push(pool);
         allPools.push(pool);
         emit NodeStakingPoolCreated(msg.sender, _name, _symbol, _rewardToken, _stakeToken, pool, allPools.length - 1);
