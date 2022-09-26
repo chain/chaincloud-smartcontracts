@@ -3,6 +3,7 @@
 pragma solidity 0.8.11;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
@@ -13,6 +14,8 @@ interface IERC20Decimals {
 }
 
 contract Payment is Initializable, OwnableUpgradeable, PausableUpgradeable {
+    using SafeERC20 for IERC20;
+
     enum PaymentType {
         PROVIDER_NODE_FEE_MONTHLY,
         PREMIUM_FEE_MONTHLY,
@@ -182,6 +185,6 @@ contract Payment is Initializable, OwnableUpgradeable, PausableUpgradeable {
             return;
         }
 
-        IERC20(_token).transferFrom(msg.sender, treasury, requireAmount);
+        IERC20(_token).safeTransferFrom(msg.sender, treasury, requireAmount);
     }
 }
