@@ -107,6 +107,7 @@ contract NodeStakingPool is Initializable, AccessControlUpgradeable, PausableUpg
         _setupRole(ADMIN_ROLE, tx.origin);
         _setupRole(PROPOSAL_ROLE, tx.origin);
         require(address(_rewardToken) != address(0), "NodeStakingPool: invalid reward token address");
+        require(_rewardDistributor != address(0), "NodeStakingPool: invalid reward distributor address");
         require(_lockupDuration > 0, "NodeStakingPool: lockupDuration must be gt 0");
         require(_withdrawPeriod > 0, "NodeStakingPool: withdrawPeriod must be gt 0");
 
@@ -166,6 +167,7 @@ contract NodeStakingPool is Initializable, AccessControlUpgradeable, PausableUpg
     ) external onlyRole(PROPOSAL_ROLE) {
         require(_lockupDuration > 0, "NodeStakingPool: lockupDuration must be gt 0");
         require(_withdrawPeriod > 0, "NodeStakingPool: withdrawPeriod must be gt 0");
+        require(_rewardDistributor != address(0), "NodeStakingPool: invalid reward distributor address");
 
         _updatePool();
 
