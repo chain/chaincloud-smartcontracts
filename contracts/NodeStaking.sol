@@ -400,7 +400,7 @@ contract NodeStakingPool is Initializable, AccessControlUpgradeable, PausableUpg
 
         // claim pending reward in withdraw time
         PendingReward storage record = pendingReward[msg.sender][_nodeId];
-        if ((record.applicableAt < block.number && record.reward > 0) || (user.stakeTime == 0)) {
+        if ((record.applicableAt <= block.number && record.reward > 0) || (user.stakeTime == 0)) {
             totalAmount += record.reward;
             record.reward = 0;
         }
