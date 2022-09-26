@@ -122,7 +122,6 @@ contract NodeStakingPool is Initializable, AccessControlUpgradeable, PausableUpg
 
         lastRewardBlock = block.number > startBlockNumber ? block.number : startBlockNumber;
         stakeToken = _stakeToken;
-        _updatePool();
     }
 
     /**
@@ -192,7 +191,7 @@ contract NodeStakingPool is Initializable, AccessControlUpgradeable, PausableUpg
      * @param _from the number of starting block
      * @param _to the number of ending block
      */
-    function timeMultiplier(uint256 _from, uint256 _to) public view returns (uint256) {
+    function timeMultiplier(uint256 _from, uint256 _to) public pure returns (uint256) {
         return _to - _from;
     }
 
