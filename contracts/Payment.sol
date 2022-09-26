@@ -3,6 +3,7 @@
 pragma solidity 0.8.11;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
@@ -13,6 +14,8 @@ interface IERC20Decimals {
 }
 
 contract Payment is Initializable, OwnableUpgradeable, PausableUpgradeable {
+    using SafeERC20 for IERC20;
+
     enum PaymentType {
         PROVIDER_NODE_FEE_MONTHLY,
         PREMIUM_FEE_MONTHLY,
@@ -51,6 +54,12 @@ contract Payment is Initializable, OwnableUpgradeable, PausableUpgradeable {
         address _usdtXcnPriceFeed
     ) external initializer {
         __Ownable_init();
+        require(treasury != address(0), "Payment: not allow zero address");
+        require(XCNToken != address(0), "Payment: not allow zero address");
+        require(USDTToken != address(0), "Payment: not allow zero address");
+        require(usdtEthPriceFeed != address(0), "Payment: not allow zero address");
+        require(usdtXcnPriceFeed != address(0), "Payment: not allow zero address");
+
         treasury = _treasury;
         XCNToken = _XCN;
         USDTToken = _USDT;
@@ -73,6 +82,9 @@ contract Payment is Initializable, OwnableUpgradeable, PausableUpgradeable {
     }
 
     function setOracle(address _usdtEthPriceFeed, address _usdtXcnPriceFeed) external onlyOwner {
+        require(usdtEthPriceFeed != address(0), "Payment: not allow zero address");
+        require(usdtXcnPriceFeed != address(0), "Payment: not allow zero address");
+
         usdtEthPriceFeed = _usdtEthPriceFeed;
         usdtXcnPriceFeed = _usdtXcnPriceFeed;
 
@@ -80,6 +92,9 @@ contract Payment is Initializable, OwnableUpgradeable, PausableUpgradeable {
     }
 
     function setTokenAddress(address _USDT, address _XCN) external onlyOwner {
+        require(XCNToken != address(0), "Payment: not allow zero address");
+        require(USDTToken != address(0), "Payment: not allow zero address");
+
         USDTToken = _USDT;
         XCNToken = _XCN;
 
@@ -101,6 +116,8 @@ contract Payment is Initializable, OwnableUpgradeable, PausableUpgradeable {
     }
 
     function changeTreasury(address _treasury) external onlyOwner {
+        require(treasury != address(0), "Payment: not allow zero address");
+
         treasury = _treasury;
         emit ChangeTreasury(_treasury);
     }
@@ -168,6 +185,6 @@ contract Payment is Initializable, OwnableUpgradeable, PausableUpgradeable {
             return;
         }
 
-        IERC20(_token).transferFrom(msg.sender, treasury, requireAmount);
+        IERC20(_token).safeTransferFrom(msg.sender, treasury, requireAmount);
     }
 }

@@ -27,6 +27,7 @@ contract NodeStakingPoolFactory is Initializable, OwnableUpgradeable, PausableUp
         address pool,
         uint256 poolId
     );
+    event ImplementationChanged(address impl);
 
     function initialize() external initializer {
         __Ownable_init();
@@ -77,6 +78,8 @@ contract NodeStakingPoolFactory is Initializable, OwnableUpgradeable, PausableUp
 
     function deployImplementation() external onlyOwner {
         nodeStakingImplementation = address(new NodeStakingPool());
+
+        emit ImplementationChanged(nodeStakingImplementation);
     }
 
     function upgradeImplementation(address proxy, address newImpl) external onlyOwner {

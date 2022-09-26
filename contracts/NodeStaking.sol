@@ -4,7 +4,6 @@ pragma solidity 0.8.11;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts-upgradeable/utils/structs/EnumerableSetUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
@@ -12,7 +11,6 @@ import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.
 
 contract NodeStakingPool is Initializable, AccessControlUpgradeable, PausableUpgradeable, ReentrancyGuardUpgradeable {
     using SafeERC20 for IERC20;
-    using SafeCastUpgradeable for uint256;
 
     bytes32 public constant PROPOSAL_ROLE = keccak256("PROPOSAL_ROLE");
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
@@ -103,12 +101,15 @@ contract NodeStakingPool is Initializable, AccessControlUpgradeable, PausableUpg
         address _rewardDistributor
     ) external initializer {
         __AccessControl_init();
+        __Pausable_init();
         _setupRole(DEFAULT_ADMIN_ROLE, tx.origin);
         _setupRole(ADMIN_ROLE, tx.origin);
         _setupRole(PROPOSAL_ROLE, tx.origin);
         require(address(_rewardToken) != address(0), "NodeStakingPool: invalid reward token address");
+        require(_rewardDistributor != address(0), "NodeStakingPool: invalid reward distributor address");
         require(_lockupDuration > 0, "NodeStakingPool: lockupDuration must be gt 0");
         require(_withdrawPeriod > 0, "NodeStakingPool: withdrawPeriod must be gt 0");
+        require(requireStakeAmount > 0, "NodeStakingPool: requireStakeAmount must be gt 0");
 
         name = _name;
         symbol = _symbol;
@@ -122,7 +123,6 @@ contract NodeStakingPool is Initializable, AccessControlUpgradeable, PausableUpg
 
         lastRewardBlock = block.number > startBlockNumber ? block.number : startBlockNumber;
         stakeToken = _stakeToken;
-        _updatePool();
     }
 
     /**
@@ -144,6 +144,8 @@ contract NodeStakingPool is Initializable, AccessControlUpgradeable, PausableUpg
      * @param _requireStakeAmount amount want to set
      */
     function setRequireStakeAmount(uint256 _requireStakeAmount) external onlyRole(PROPOSAL_ROLE) {
+        require(requireStakeAmount > 0, "NodeStakingPool: requireStakeAmount must be gt 0");
+
         requireStakeAmount = _requireStakeAmount;
         emit SetRequireStakeAmount(_requireStakeAmount);
     }
@@ -166,6 +168,7 @@ contract NodeStakingPool is Initializable, AccessControlUpgradeable, PausableUpg
     ) external onlyRole(PROPOSAL_ROLE) {
         require(_lockupDuration > 0, "NodeStakingPool: lockupDuration must be gt 0");
         require(_withdrawPeriod > 0, "NodeStakingPool: withdrawPeriod must be gt 0");
+        require(_rewardDistributor != address(0), "NodeStakingPool: invalid reward distributor address");
 
         _updatePool();
 
@@ -177,7 +180,7 @@ contract NodeStakingPool is Initializable, AccessControlUpgradeable, PausableUpg
         emit SetPoolInfor(_rewardPerBlock, _lockupDuration, _withdrawPeriod, _rewardDistributor);
     }
 
-    function setRewardPerBlock(uint256 _rewardPerBlock) external {
+    function setRewardPerBlock(uint256 _rewardPerBlock) external onlyRole(PROPOSAL_ROLE) {
         _updatePool();
         rewardPerBlock = _rewardPerBlock;
 
@@ -189,7 +192,7 @@ contract NodeStakingPool is Initializable, AccessControlUpgradeable, PausableUpg
      * @param _from the number of starting block
      * @param _to the number of ending block
      */
-    function timeMultiplier(uint256 _from, uint256 _to) public view returns (uint256) {
+    function timeMultiplier(uint256 _from, uint256 _to) public pure returns (uint256) {
         return _to - _from;
     }
 
@@ -395,7 +398,7 @@ contract NodeStakingPool is Initializable, AccessControlUpgradeable, PausableUpg
 
         // claim pending reward in withdraw time
         PendingReward storage record = pendingReward[msg.sender][_nodeId];
-        if ((record.applicableAt < block.number && record.reward > 0) || (user.stakeTime == 0)) {
+        if ((record.applicableAt <= block.number && record.reward > 0) || (user.stakeTime == 0)) {
             totalAmount += record.reward;
             record.reward = 0;
         }
