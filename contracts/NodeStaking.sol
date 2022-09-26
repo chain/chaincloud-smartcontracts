@@ -101,6 +101,7 @@ contract NodeStakingPool is Initializable, AccessControlUpgradeable, PausableUpg
         address _rewardDistributor
     ) external initializer {
         __AccessControl_init();
+        __Pausable_init();
         _setupRole(DEFAULT_ADMIN_ROLE, tx.origin);
         _setupRole(ADMIN_ROLE, tx.origin);
         _setupRole(PROPOSAL_ROLE, tx.origin);
