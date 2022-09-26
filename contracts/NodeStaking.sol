@@ -177,7 +177,7 @@ contract NodeStakingPool is Initializable, AccessControlUpgradeable, PausableUpg
         emit SetPoolInfor(_rewardPerBlock, _lockupDuration, _withdrawPeriod, _rewardDistributor);
     }
 
-    function setRewardPerBlock(uint256 _rewardPerBlock) external {
+    function setRewardPerBlock(uint256 _rewardPerBlock) external onlyRole(PROPOSAL_ROLE) {
         _updatePool();
         rewardPerBlock = _rewardPerBlock;
 
