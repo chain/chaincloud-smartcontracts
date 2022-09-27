@@ -38,6 +38,24 @@ describe("Payment", () => {
       "Ownable: caller is not the owner",
     );
 
+    await expect(payment.setOracle(ethers.constants.AddressZero, account1.address)).to.revertedWith(
+      "Payment: not allow zero address",
+    );
+    await expect(payment.setOracle(account1.address, ethers.constants.AddressZero)).to.revertedWith(
+      "Payment: not allow zero address",
+    );
+
+    await expect(payment.setTokenAddress(ethers.constants.AddressZero, account1.address)).to.revertedWith(
+      "Payment: not allow zero address",
+    );
+    await expect(payment.setTokenAddress(account1.address, ethers.constants.AddressZero)).to.revertedWith(
+      "Payment: not allow zero address",
+    );
+
+    await expect(payment.changeTreasury(ethers.constants.AddressZero)).to.revertedWith(
+      "Payment: not allow zero address",
+    );
+
     await expect(payment.setOracle(account1.address, account1.address))
       .to.emit(payment, "SetOracle")
       .withArgs(account1.address, account1.address);
