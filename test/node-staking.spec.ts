@@ -50,6 +50,9 @@ describe("Node Staking", () => {
 
     it("setRequireStakeAmount", async () => {
       const amount = ethers.utils.parseEther("50");
+      await expect(nodeStaking.setRequireStakeAmount(0)).to.revertedWith(
+        "NodeStakingPool: requireStakeAmount must be gt 0",
+      );
       await expect(await nodeStaking.setRequireStakeAmount(amount))
         .to.emit(nodeStaking, "SetRequireStakeAmount")
         .withArgs(amount);
@@ -91,6 +94,10 @@ describe("Node Staking", () => {
       await expect(nodeStaking.setPoolInfor(rewardPerBlock, lockupDuration, 0, rewardDistributor)).to.revertedWith(
         "NodeStakingPool: withdrawPeriod must be gt 0",
       );
+
+      await expect(
+        nodeStaking.setPoolInfor(rewardPerBlock, lockupDuration, 1000, ethers.constants.AddressZero),
+      ).to.revertedWith("NodeStakingPool: invalid reward distributor address");
 
       await expect(nodeStaking.setPoolInfor(rewardPerBlock, lockupDuration, withdrawPeriod, rewardDistributor))
         .to.emit(nodeStaking, "SetPoolInfor")
@@ -138,13 +145,16 @@ describe("Node Staking", () => {
 
   describe("Deposit, withdraw, not enable address => haven't reward", async () => {
     it("setRequireStakeAmount", async () => {
-      await expect(nodeStaking.setRequireStakeAmount(0)).to.emit(nodeStaking, "SetRequireStakeAmount").withArgs(0);
-      expect(await nodeStaking.requireStakeAmount()).to.eq(0);
+      await expect(nodeStaking.setRequireStakeAmount(0)).to.revertedWith(
+        "NodeStakingPool: requireStakeAmount must be gt 0",
+      );
+
+      await expect(nodeStaking.setRequireStakeAmount(50000000))
+        .to.emit(nodeStaking, "SetRequireStakeAmount")
+        .withArgs(50000000);
+      expect(await nodeStaking.requireStakeAmount()).to.eq(50000000);
     });
-    it("setRequireStakeAmount", async () => {
-      await expect(nodeStaking.setRequireStakeAmount(0)).to.emit(nodeStaking, "SetRequireStakeAmount").withArgs(0);
-      expect(await nodeStaking.requireStakeAmount()).to.eq(0);
-    });
+
     it("should able to deposit and withdraw", async () => {
       // acc1 deposit
       const acc1XCNBalance1 = await XCN.balanceOf(account1.address);
