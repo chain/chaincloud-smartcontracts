@@ -116,7 +116,7 @@ contract Payment is Initializable, OwnableUpgradeable, PausableUpgradeable {
     }
 
     function changeTreasury(address _treasury) external onlyOwner {
-        require(treasury != address(0), "Payment: not allow zero address");
+        require(_treasury != address(0), "Payment: not allow zero address");
 
         treasury = _treasury;
         emit ChangeTreasury(_treasury);
