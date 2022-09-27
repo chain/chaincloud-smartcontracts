@@ -109,7 +109,7 @@ contract NodeStakingPool is Initializable, AccessControlUpgradeable, PausableUpg
         require(_rewardDistributor != address(0), "NodeStakingPool: invalid reward distributor address");
         require(_lockupDuration > 0, "NodeStakingPool: lockupDuration must be gt 0");
         require(_withdrawPeriod > 0, "NodeStakingPool: withdrawPeriod must be gt 0");
-        require(requireStakeAmount > 0, "NodeStakingPool: requireStakeAmount must be gt 0");
+        require(_requireStakeAmount > 0, "NodeStakingPool: requireStakeAmount must be gt 0");
 
         name = _name;
         symbol = _symbol;
@@ -144,7 +144,7 @@ contract NodeStakingPool is Initializable, AccessControlUpgradeable, PausableUpg
      * @param _requireStakeAmount amount want to set
      */
     function setRequireStakeAmount(uint256 _requireStakeAmount) external onlyRole(PROPOSAL_ROLE) {
-        require(requireStakeAmount > 0, "NodeStakingPool: requireStakeAmount must be gt 0");
+        require(_requireStakeAmount > 0, "NodeStakingPool: requireStakeAmount must be gt 0");
 
         requireStakeAmount = _requireStakeAmount;
         emit SetRequireStakeAmount(_requireStakeAmount);

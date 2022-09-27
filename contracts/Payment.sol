@@ -54,11 +54,11 @@ contract Payment is Initializable, OwnableUpgradeable, PausableUpgradeable {
         address _usdtXcnPriceFeed
     ) external initializer {
         __Ownable_init();
-        require(treasury != address(0), "Payment: not allow zero address");
-        require(XCNToken != address(0), "Payment: not allow zero address");
-        require(USDTToken != address(0), "Payment: not allow zero address");
-        require(usdtEthPriceFeed != address(0), "Payment: not allow zero address");
-        require(usdtXcnPriceFeed != address(0), "Payment: not allow zero address");
+        require(_treasury != address(0), "Payment: not allow zero address");
+        require(_XCN != address(0), "Payment: not allow zero address");
+        require(_USDT != address(0), "Payment: not allow zero address");
+        require(_usdtEthPriceFeed != address(0), "Payment: not allow zero address");
+        require(_usdtXcnPriceFeed != address(0), "Payment: not allow zero address");
 
         treasury = _treasury;
         XCNToken = _XCN;
@@ -82,8 +82,8 @@ contract Payment is Initializable, OwnableUpgradeable, PausableUpgradeable {
     }
 
     function setOracle(address _usdtEthPriceFeed, address _usdtXcnPriceFeed) external onlyOwner {
-        require(usdtEthPriceFeed != address(0), "Payment: not allow zero address");
-        require(usdtXcnPriceFeed != address(0), "Payment: not allow zero address");
+        require(_usdtEthPriceFeed != address(0), "Payment: not allow zero address");
+        require(_usdtXcnPriceFeed != address(0), "Payment: not allow zero address");
 
         usdtEthPriceFeed = _usdtEthPriceFeed;
         usdtXcnPriceFeed = _usdtXcnPriceFeed;
@@ -92,8 +92,8 @@ contract Payment is Initializable, OwnableUpgradeable, PausableUpgradeable {
     }
 
     function setTokenAddress(address _USDT, address _XCN) external onlyOwner {
-        require(XCNToken != address(0), "Payment: not allow zero address");
-        require(USDTToken != address(0), "Payment: not allow zero address");
+        require(_XCN != address(0), "Payment: not allow zero address");
+        require(_USDT != address(0), "Payment: not allow zero address");
 
         USDTToken = _USDT;
         XCNToken = _XCN;
